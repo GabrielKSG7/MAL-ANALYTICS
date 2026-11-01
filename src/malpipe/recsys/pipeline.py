@@ -61,6 +61,78 @@ def _user_rows(con, username: str, item_index: dict[int, int], n_items: int):
     return row, seen, mine
 
 
+def run_content_only(
+    con: duckdb.DuckDBPyConnection,
+    username: str | None,
+    k: int,
+    console: Console,
+    trained_at: datetime,
+    min_members: int = 5000,
+) -> dict:
+    """Recomendações sem dados de outros usuários: perfil de conteúdo da sua lista.
+
+    Funciona assim que houver detalhes do MAL para os animes da sua lista; o catálogo de
+    candidatos cresce conforme o `mal-details` avança. Quando o Kaggle for carregado, o
+    pipeline completo (colaborativo + conteúdo + popularidade) passa a ser usado.
+    """
+    if not username:
+        console.print("[yellow]Defina MAL_USERNAME para receber recomendações.[/]")
+        return {"metrics": [], "agreement": {}, "n_recommendations": 0}
+
+    catalog = con.execute(
+        """
+        SELECT a.mal_id
+        FROM core.dim_anime a
+        LEFT JOIN core.fct_my_list m ON m.mal_id = a.mal_id AND m.username = ?
+        WHERE a.media_type IN ('tv', 'movie', 'ona', 'ova')
+          AND (a.num_list_users >= ? OR m.mal_id IS NOT NULL)
+        ORDER BY a.mal_id
+        """,
+        [username, min_members],
+    ).df()
+    if catalog.empty:
+        console.print("[yellow]Nenhum anime com detalhe do MAL ainda — rode `malpipe mal-details`.[/]")
+        return {"metrics": [], "agreement": {}, "n_recommendations": 0}
+
+    item_ids = catalog.mal_id.to_numpy()
+    index = {int(m): i for i, m in enumerate(item_ids)}
+    features = load_item_features(con, item_ids)
+    row, seen, mine = _user_rows(con, username, index, len(item_ids))
+    if row is None:
+        console.print(f"[yellow]Sua lista ({username}) ainda não tem notas que casem com o catálogo extraído.[/]")
+        return {"metrics": [], "agreement": {}, "n_recommendations": 0}
+
+    model = ContentRecommender(features)
+    top = top_k(model.score(row), exclude=seen, k=max(k, 20))[0]
+    titles = dict(con.execute("SELECT mal_id, title FROM core.dim_anime").fetchall())
+    ptw = set(mine[mine.list_status == "plan_to_watch"].mal_id.astype(int))
+    liked = row.tocsr()
+    sims = features @ features.T  # similaridade de conteúdo item × item
+    out = []
+    for rank, j in enumerate(top, start=1):
+        contrib = sims.getrow(int(j)).multiply(liked)
+        because = int(contrib.tocsr().indices[np.argmax(contrib.tocsr().data)]) if contrib.nnz else None
+        out.append(
+            {
+                "username": username,
+                "model": model.name,
+                "rank": rank,
+                "mal_id": int(item_ids[j]),
+                "title": titles.get(int(item_ids[j])),
+                "already_in_plan_to_watch": int(item_ids[j]) in ptw,
+                "because_you_liked_mal_id": int(item_ids[because]) if because is not None else None,
+                "because_you_liked": titles.get(int(item_ids[because])) if because is not None else None,
+                "generated_at": trained_at,
+            }
+        )
+    _write(con, "recommendations_for_user", pd.DataFrame(out))
+    console.print(
+        f"{len(out)} recomendações por conteúdo para {username} (catálogo atual: {len(item_ids):,} animes). "
+        "Top 5: " + "; ".join(r["title"] or str(r["mal_id"]) for r in out[:5])
+    )
+    return {"metrics": [], "agreement": {}, "n_recommendations": len(out)}
+
+
 def run(
     duckdb_path: Path,
     username: str | None = None,
@@ -72,7 +144,16 @@ def run(
     con = duckdb.connect(str(duckdb_path))
     trained_at = datetime.now(UTC).replace(tzinfo=None)
 
-    data = load_interactions(con, max_users=max_users)
+    try:
+        data = load_interactions(con, max_users=max_users)
+    except RuntimeError:
+        console.print(
+            "[yellow]Sem interações do Kaggle ainda — usando só o modelo de conteúdo "
+            "(gêneros, tags, estúdio, origem e década) a partir da sua lista.[/]"
+        )
+        result = run_content_only(con, username, k=k, console=console, trained_at=trained_at)
+        con.close()
+        return result
     features = load_item_features(con, data.item_ids)
     console.print(f"interações: {data.raw.nnz:,} | usuários: {data.n_users:,} | itens: {data.n_items:,}")
 

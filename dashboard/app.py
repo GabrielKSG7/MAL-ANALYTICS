@@ -303,9 +303,19 @@ with tabs[7]:
 # ---------------------------------------------------------------- recomendações
 with tabs[8]:
     metrics = q("SELECT * FROM ml.model_metrics")
-    recs = q("SELECT * FROM ml.recommendations_for_user WHERE model = 'hybrid' ORDER BY username, rank")
+    recs = q(
+        """SELECT * FROM ml.recommendations_for_user
+           WHERE model = (SELECT CASE WHEN bool_or(model = 'hybrid') THEN 'hybrid' ELSE any_value(model) END
+                          FROM ml.recommendations_for_user)
+           ORDER BY username, rank"""
+    )
     if not recs.empty:
         st.subheader("Recomendado para você")
+        if recs.model.iloc[0] == "content":
+            st.caption(
+                "Modelo de conteúdo (gêneros, tags, estúdio, origem, década) a partir da sua lista. "
+                "Carregue o Kaggle para ativar o modelo híbrido com filtragem colaborativa."
+            )
         st.dataframe(
             recs[["username", "rank", "title", "because_you_liked", "already_in_plan_to_watch"]],
             width="stretch",
