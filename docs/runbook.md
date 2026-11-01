@@ -38,7 +38,7 @@ malpipe incremental && make build
 
 1. Crie `run_weekly.ps1`:
    ```powershell
-   Set-Location "C:\caminho\para\mal-anime-analytics"
+   Set-Location "C:\caminho\para\MAL-ANALYTICS"
    .\.venv\Scripts\Activate.ps1
    malpipe incremental
    .\scripts\tasks.ps1 build
@@ -49,7 +49,7 @@ malpipe incremental && make build
 ### Agendando no Linux/WSL (cron)
 
 ```cron
-0 6 * * 1  cd ~/mal-anime-analytics && . .venv/bin/activate && malpipe incremental && make build >> data/cron.log 2>&1
+0 6 * * 1  cd ~/MAL-ANALYTICS && . .venv/bin/activate && malpipe incremental && make build >> data/cron.log 2>&1
 ```
 
 ## Diagnóstico
