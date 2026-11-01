@@ -67,7 +67,7 @@ def test_gives_up_after_max_retries(make_client):
     route = respx.get("https://api.test/v2/x").mock(return_value=httpx.Response(503))
     result = make_client(max_retries=2).get("/x")
     assert result.status_code == 503
-    assert "esgotou" in result.error
+    assert "falhou" in result.error
     assert route.call_count == 3
 
 
@@ -77,3 +77,23 @@ def test_network_error_is_retried(make_client):
         side_effect=[httpx.ConnectError("boom"), httpx.Response(200, json={"ok": True})]
     )
     assert make_client().get("/y").payload == {"ok": True}
+
+
+@respx.mock
+def test_circuit_breaker_stops_run_and_keeps_progress(wh, make_client):
+    import pytest
+
+    from malpipe.http import HostUnreachableError
+    from malpipe.sources import jikan
+
+    route = respx.get(url__regex=r"https://api.test/v4/anime/\d+/statistics").mock(
+        side_effect=httpx.ConnectTimeout("timeout")
+    )
+    client = make_client(base_url="https://api.test/v4")
+    with pytest.raises(HostUnreachableError), wh.run("jikan") as run:
+        jikan.fetch_entity(client, wh, run, "statistics", list(range(1, 50)))
+    # parou no 3º ID (disjuntor), com 1 tentativa + 2 retries de rede cada
+    assert route.call_count == 9
+    rows = wh.con.execute("SELECT count(*), max(http_status) FROM bronze.jikan_statistics").fetchone()
+    assert rows == (3, 0)  # falhas gravadas: voltam para a fila na próxima execução
+    assert wh.con.execute("SELECT status FROM meta.runs").fetchone()[0] == "failed"

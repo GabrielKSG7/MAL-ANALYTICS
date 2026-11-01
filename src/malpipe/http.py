@@ -16,6 +16,10 @@ log = logging.getLogger(__name__)
 RETRYABLE_STATUS = {429, 500, 502, 503, 504}
 
 
+class HostUnreachableError(RuntimeError):
+    """O host parou de responder (timeouts/conexão recusada em sequência)."""
+
+
 class RateLimiter:
     """Garante um intervalo mínimo entre requisições (1 / rps).
 
@@ -87,6 +91,8 @@ class PoliteClient:
         max_retries: int = 5,
         backoff_base: float = 2.0,
         backoff_cap: float = 120.0,
+        max_network_retries: int = 2,
+        circuit_breaker: int = 3,
         sleep: Callable[[float], None] = time.sleep,
         transport: httpx.BaseTransport | None = None,
     ) -> None:
@@ -95,10 +101,17 @@ class PoliteClient:
         self.backoff_base = backoff_base
         self.backoff_cap = backoff_cap
         self._sleep = sleep
+        # Falhas de REDE (timeout de conexão, DNS, firewall) são tratadas à parte das respostas
+        # 429/5xx: poucas tentativas por requisição e um "disjuntor" que interrompe a execução
+        # quando o host para de responder — senão cada ID gastaria minutos esperando timeout.
+        self.max_network_retries = max_network_retries
+        self.circuit_breaker = circuit_breaker
+        self.consecutive_network_failures = 0
+        self.base_url = base_url
         self._client = httpx.Client(
             base_url=base_url,
             headers=headers or {},
-            timeout=timeout,
+            timeout=httpx.Timeout(timeout, connect=min(10.0, timeout)),
             follow_redirects=True,
             transport=transport,
         )
@@ -107,20 +120,29 @@ class PoliteClient:
         delay = min(self.backoff_cap, self.backoff_base**attempt)
         return delay + random.uniform(0, delay * 0.1)  # jitter
 
+    @property
+    def host_unreachable(self) -> bool:
+        return self.consecutive_network_failures >= self.circuit_breaker
+
     def get(self, url: str, params: dict | None = None) -> FetchResult:
         last_error: str | None = None
         last_status = 0
+        network_attempts = 0
         for attempt in range(self.max_retries + 1):
             self.limiter.wait()
             try:
                 response = self._client.get(url, params=params)
             except httpx.TransportError as exc:
+                network_attempts += 1
                 last_error, last_status = f"{type(exc).__name__}: {exc}", 0
+                if network_attempts > self.max_network_retries:
+                    break
                 delay = self._backoff(attempt)
                 log.warning("erro de rede em %s (%s); nova tentativa em %.1fs", url, exc, delay)
                 self._sleep(delay)
                 continue
 
+            self.consecutive_network_failures = 0
             last_status = response.status_code
             if response.status_code in RETRYABLE_STATUS:
                 delay = _retry_after_seconds(response) or self._backoff(attempt)
@@ -138,7 +160,17 @@ class PoliteClient:
             # 4xx não-retentável (404, 400, 403): resultado definitivo.
             return FetchResult(str(response.url), response.status_code, None, response.text[:500])
 
-        return FetchResult(url, last_status, None, f"esgotou {self.max_retries} retries: {last_error}")
+        if last_status == 0:
+            self.consecutive_network_failures += 1
+        return FetchResult(url, last_status, None, f"falhou após retries: {last_error}")
+
+    def raise_if_unreachable(self) -> None:
+        if self.host_unreachable:
+            raise HostUnreachableError(
+                f"{self.base_url} não respondeu em {self.consecutive_network_failures} requisições seguidas. "
+                "Pode ser o serviço fora do ar ou a rede bloqueando o acesso (firewall/proxy corporativo). "
+                "O progresso foi salvo; rode o comando de novo mais tarde que ele continua de onde parou."
+            )
 
     def close(self) -> None:
         self._client.close()

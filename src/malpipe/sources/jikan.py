@@ -53,6 +53,9 @@ def fetch_entity(
         # O Jikan embrulha tudo em {"data": ...}; guardamos só o conteúdo útil.
         payload = result.payload.get("data") if result.ok else None
         buffer.append((mal_id, result.status_code, to_json(payload), result.error, utcnow(), run.run_id))
+        if client.host_unreachable:
+            run.add(wh.insert_rows(table, columns, buffer))
+            client.raise_if_unreachable()
         if len(buffer) >= flush_every or i == len(ids):
             run.add(wh.insert_rows(table, columns, buffer))
             buffer.clear()

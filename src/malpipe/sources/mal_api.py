@@ -127,6 +127,9 @@ def fetch_details(
         result = client.get(f"/anime/{mal_id}", params={"fields": ANIME_FIELDS, "nsfw": "true"})
         status_count[result.status_code] = status_count.get(result.status_code, 0) + 1
         buffer.append((mal_id, result.status_code, to_json(result.payload), result.error, utcnow(), run.run_id))
+        if client.host_unreachable:
+            run.add(wh.insert_rows("bronze.mal_anime", columns, buffer))
+            client.raise_if_unreachable()
         if len(buffer) >= flush_every or i == len(ids):
             run.add(wh.insert_rows("bronze.mal_anime", columns, buffer))
             buffer.clear()

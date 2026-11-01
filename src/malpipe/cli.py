@@ -238,5 +238,16 @@ def status() -> None:
     wh.close()
 
 
+def main() -> None:
+    """Ponto de entrada: erros esperados viram mensagem clara, sem traceback."""
+    from malpipe.http import HostUnreachableError
+
+    try:
+        app()
+    except HostUnreachableError as exc:
+        console.print(f"[bold red]Host inacessível[/] — {exc}")
+        raise SystemExit(2) from None
+
+
 if __name__ == "__main__":
-    app()
+    main()
