@@ -1,0 +1,239 @@
+"""CLI do pipeline: `malpipe --help`."""
+
+from __future__ import annotations
+
+import logging
+from datetime import date
+from pathlib import Path
+from typing import Annotated
+
+import typer
+from rich.console import Console
+from rich.logging import RichHandler
+from rich.table import Table
+
+from malpipe.config import get_settings
+from malpipe.sources import jikan, kaggle, mal_api, manami
+from malpipe.warehouse import JIKAN_ENTITIES, Warehouse
+
+app = typer.Typer(help="Pipeline de dados do MyAnimeList → DuckDB (bronze).", no_args_is_help=True)
+console = Console()
+
+
+@app.callback()
+def _setup(verbose: Annotated[bool, typer.Option("--verbose", "-v")] = False) -> None:
+    logging.basicConfig(
+        level=logging.DEBUG if verbose else logging.INFO,
+        format="%(message)s",
+        handlers=[RichHandler(console=console, show_path=False, rich_tracebacks=True)],
+    )
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+
+
+def _wh() -> Warehouse:
+    return Warehouse(get_settings().duckdb_path)
+
+
+def _parse_years(spec: str) -> range:
+    if "-" in spec:
+        start, end = spec.split("-", 1)
+        return range(int(start), int(end) + 1)
+    return range(int(spec), int(spec) + 1)
+
+
+@app.command()
+def init() -> None:
+    """Cria o arquivo DuckDB e os schemas bronze/meta."""
+    wh = _wh()
+    console.print(f"[green]ok[/] warehouse em {wh.path}")
+    wh.close()
+
+
+@app.command()
+def discover(
+    ranking: Annotated[bool, typer.Option(help="Descobrir IDs pelo ranking geral.")] = True,
+    seasons: Annotated[str | None, typer.Option(help="Faixa de anos, ex.: 1990-2026.")] = None,
+    max_pages: Annotated[int | None, typer.Option(help="Limite de páginas do ranking (500 IDs cada).")] = None,
+) -> None:
+    """Descobre IDs de anime via MAL API (ranking e/ou temporadas)."""
+    settings = get_settings()
+    wh = _wh()
+    with wh.run("discover") as run, mal_api.build_client(settings) as client:
+        if ranking:
+            mal_api.discover_ranking(client, wh, run, max_pages=max_pages)
+        if seasons:
+            mal_api.discover_seasons(client, wh, run, _parse_years(seasons))
+        console.print(f"[green]{run.rows_written}[/] IDs descobertos")
+    wh.close()
+
+
+@app.command("mal-details")
+def mal_details(
+    limit: Annotated[int | None, typer.Option(help="Máximo de IDs nesta execução.")] = None,
+    retry_not_found: Annotated[bool, typer.Option(help="Tentar de novo IDs que deram 404.")] = False,
+) -> None:
+    """Extrai o detalhe completo dos IDs pendentes (novos ou mais velhos que REFRESH_DAYS)."""
+    settings = get_settings()
+    wh = _wh()
+    ids = wh.pending_ids("bronze.mal_anime", settings.refresh_days, wh.known_mal_ids_sql(), retry_not_found, limit)
+    console.print(f"{len(ids)} IDs pendentes (~{len(ids) / settings.mal_rps / 3600:.1f} h a {settings.mal_rps} req/s)")
+    if ids:
+        with wh.run("mal-details") as run, mal_api.build_client(settings) as client:
+            stats = mal_api.fetch_details(client, wh, run, ids)
+            run.notes = f"status: {stats}"
+    wh.close()
+
+
+@app.command("jikan")
+def jikan_cmd(
+    entity: Annotated[str, typer.Argument(help=f"{' | '.join(JIKAN_ENTITIES)} | all")] = "all",
+    limit: Annotated[int | None, typer.Option()] = None,
+) -> None:
+    """Enriquece via Jikan os animes que já têm detalhe do MAL."""
+    settings = get_settings()
+    wh = _wh()
+    entities = JIKAN_ENTITIES if entity == "all" else (entity,)
+    with jikan.build_client(settings) as client:
+        for ent in entities:
+            ids = wh.pending_ids(
+                f"bronze.jikan_{ent}", settings.refresh_days * 4, wh.fetched_mal_ids_sql(), limit=limit
+            )
+            console.print(f"jikan {ent}: {len(ids)} pendentes")
+            if ids:
+                with wh.run(f"jikan-{ent}") as run:
+                    run.notes = f"status: {jikan.fetch_entity(client, wh, run, ent, ids)}"
+    wh.close()
+
+
+@app.command("manami")
+def manami_cmd(
+    file: Annotated[Path | None, typer.Option(help="Arquivo já baixado (.json ou .json.zst).")] = None,
+) -> None:
+    """Baixa e carrega o anime-offline-database (idempotente por snapshot semanal)."""
+    settings = get_settings()
+    wh = _wh()
+    with wh.run("manami") as run:
+        path = file or manami.download(
+            settings.manami_url, settings.data_dir / "raw" / f"manami-{date.today():%Y%m%d}.json.zst"
+        )
+        manami.load(wh, run, path)
+        console.print(run.notes)
+    wh.close()
+
+
+@app.command("kaggle")
+def kaggle_cmd(
+    csv: Annotated[Path, typer.Argument(help="Caminho do animelist.csv")],
+    sample_users: Annotated[int | None, typer.Option(help="Carregar só N usuários (dev local).")] = None,
+) -> None:
+    """Carrega as interações usuário × anime do Kaggle (hernan4444)."""
+    wh = _wh()
+    with wh.run("kaggle") as run:
+        n = kaggle.load_animelist(wh, run, csv, sample_users)
+        console.print(f"[green]{n:,}[/] linhas carregadas")
+    wh.close()
+
+
+@app.command("my-list")
+def my_list(username: Annotated[str | None, typer.Option(help="Default: MAL_USERNAME do .env")] = None) -> None:
+    """Extrai a sua lista pública do MAL (para o painel 'Meu perfil vs MAL')."""
+    settings = get_settings()
+    username = username or settings.mal_username
+    if not username:
+        raise typer.BadParameter("informe --username ou MAL_USERNAME no .env")
+    wh = _wh()
+    with wh.run("my-list") as run, mal_api.build_client(settings) as client:
+        n = mal_api.fetch_user_list(client, wh, run, username)
+        console.print(f"[green]{n}[/] itens na lista de {username}")
+    wh.close()
+
+
+@app.command()
+def incremental(
+    seasons: Annotated[str, typer.Option(help="Temporadas recentes a varrer.")] = f"{date.today().year - 1}-"
+    f"{date.today().year + 1}",
+    detail_limit: Annotated[int | None, typer.Option()] = None,
+) -> None:
+    """Rotina semanal: manami → temporadas recentes → detalhes pendentes → Jikan → minha lista."""
+    settings = get_settings()
+    manami_cmd(None)
+    wh = _wh()
+    with wh.run("discover-incremental") as run, mal_api.build_client(settings) as client:
+        mal_api.discover_seasons(client, wh, run, _parse_years(seasons))
+    wh.close()
+    mal_details(limit=detail_limit, retry_not_found=False)
+    jikan_cmd("all", limit=detail_limit)
+    if settings.mal_username:
+        my_list(None)
+
+
+@app.command()
+def sample(
+    n_anime: Annotated[int, typer.Option()] = 400,
+    n_users: Annotated[int, typer.Option()] = 1500,
+    seed: Annotated[int, typer.Option()] = 42,
+    reset: Annotated[bool, typer.Option(help="Apaga o bronze antes de gerar.")] = True,
+) -> None:
+    """Gera dados SINTÉTICOS no formato das APIs (demo/CI, sem credenciais)."""
+    from malpipe.sample_data import generate
+
+    wh = _wh()
+    if reset:
+        for table, _ in wh.table_counts():
+            if table.startswith("bronze."):
+                wh.con.execute(f"DELETE FROM {table}")
+    with wh.run("sample") as run:
+        counts = generate(wh, run, n_anime=n_anime, n_users=n_users, seed=seed)
+    table = Table("tabela bronze", "linhas", title="Dados sintéticos gerados")
+    for k, v in counts.items():
+        table.add_row(k, f"{v:,}")
+    console.print(table)
+    wh.close()
+
+
+@app.command()
+def recommend(
+    username: Annotated[str | None, typer.Option(help="Usuário cuja lista recebe recomendações.")] = None,
+    k: Annotated[int, typer.Option(help="Top-K para avaliação e recomendação.")] = 10,
+    max_users: Annotated[
+        int | None, typer.Option(help="Amostra de usuários para treinar mais rápido (base completa: ~300 mil).")
+    ] = None,
+) -> None:
+    """Treina e avalia os recomendadores e grava resultados no schema `ml` do DuckDB."""
+    from malpipe.recsys.pipeline import run as run_recsys
+
+    settings = get_settings()
+    run_recsys(
+        settings.duckdb_path,
+        username=username or settings.mal_username,
+        k=k,
+        max_users=max_users,
+        console=console,
+    )
+
+
+@app.command()
+def status() -> None:
+    """Contagem por tabela, últimas execuções e fila pendente."""
+    settings = get_settings()
+    wh = _wh()
+    t = Table("tabela", "linhas", title=f"Warehouse: {wh.path}")
+    for name, n in wh.table_counts():
+        t.add_row(name, f"{n:,}")
+    console.print(t)
+
+    runs = wh.con.execute(
+        "SELECT command, started_at, status, rows_written, notes FROM meta.runs ORDER BY started_at DESC LIMIT 8"
+    ).fetchall()
+    r = Table("comando", "início", "status", "linhas", "notas", title="Últimas execuções")
+    for cmd, started, st, rows, notes in runs:
+        r.add_row(cmd, f"{started:%Y-%m-%d %H:%M}", st, f"{rows:,}", (notes or "")[:60])
+    console.print(r)
+
+    pending = len(wh.pending_ids("bronze.mal_anime", settings.refresh_days, wh.known_mal_ids_sql()))
+    console.print(f"Pendentes em mal_anime: [bold]{pending:,}[/]")
+    wh.close()
+
+
+if __name__ == "__main__":
+    app()

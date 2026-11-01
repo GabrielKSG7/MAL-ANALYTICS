@@ -1,0 +1,85 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python:
+    name: Lint + testes Python
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -e ".[dev]"
+      - run: ruff check src tests dashboard
+      - run: ruff format --check src tests dashboard
+      - run: pytest
+
+  pipeline:
+    name: Pipeline ponta a ponta (dados sintéticos)
+    runs-on: ubuntu-latest
+    needs: python
+    env:
+      DUCKDB_PATH: ${{ github.workspace }}/data/ci.duckdb
+      DBT_PROFILES_DIR: ${{ github.workspace }}/dbt
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -e ".[dev]"
+
+      - name: Bronze — dados sintéticos no formato das APIs
+        run: malpipe sample --n-anime 300 --n-users 800
+
+      - name: dbt — modelos, snapshot, testes de dados e unit tests
+        working-directory: dbt
+        run: dbt build --fail-fast
+
+      - name: dbt — freshness das fontes
+        working-directory: dbt
+        run: dbt source freshness || true  # dados sintéticos têm datas fixas; só informativo
+
+      - name: Incremental — segunda execução não duplica a série temporal
+        working-directory: dbt
+        run: |
+          dbt run --select fct_anime_metrics_snapshot
+          python -c "
+          import duckdb, os
+          c = duckdb.connect(os.environ['DUCKDB_PATH'], read_only=True)
+          dup = c.execute('select count(*) from (select mal_id, snapshot_date from core.fct_anime_metrics_snapshot group by 1,2 having count(*) > 1)').fetchone()[0]
+          assert dup == 0, f'{dup} duplicatas'
+          print('incremental ok')
+          "
+
+      - name: Recomendador
+        run: malpipe recommend --username demo_user
+
+      - name: Manami real (dados públicos do GitHub)
+        run: |
+          DUCKDB_PATH=${{ github.workspace }}/data/manami.duckdb malpipe manami
+          cd dbt && DUCKDB_PATH=${{ github.workspace }}/data/manami.duckdb dbt build --select stg_manami__anime stg_manami__anime_tags
+
+      - name: Docs do dbt
+        working-directory: dbt
+        run: dbt docs generate
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dbt-docs
+          path: |
+            dbt/target/index.html
+            dbt/target/manifest.json
+            dbt/target/catalog.json
+          retention-days: 14

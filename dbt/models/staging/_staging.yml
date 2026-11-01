@@ -1,0 +1,137 @@
+version: 2
+
+models:
+  # ------------------------------------------------------------------ MAL API v2
+  - name: stg_mal__anime_extractions
+    description: Todas as extrações bem-sucedidas de /anime/{id}, tipadas. Base do histórico de métricas.
+    columns:
+      - name: mal_id
+        data_tests: [not_null]
+      - name: mean_score
+        data_tests:
+          - value_between: {arguments: {min_value: 1, max_value: 10}}
+
+  - name: stg_mal__anime
+    description: Estado atual de cada anime (extração mais recente). Uma linha por mal_id.
+    columns:
+      - name: mal_id
+        description: ID do anime no MyAnimeList.
+        data_tests: [unique, not_null]
+      - name: title
+        data_tests: [not_null]
+      - name: media_type
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [tv, movie, ova, ona, special, music, tv_special, pv, cm, unknown]
+              config: {severity: warn}
+      - name: airing_status
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [finished_airing, currently_airing, not_yet_aired]
+      - name: mean_score
+        description: Nota média no MAL (1–10). Nula quando ainda não há votos suficientes.
+        data_tests:
+          - value_between: {arguments: {min_value: 1, max_value: 10}}
+      - name: num_list_users
+        description: "Membros: quantos usuários têm o anime na lista (qualquer status)."
+        data_tests:
+          - value_between: {arguments: {min_value: 0}}
+      - name: start_date_precision
+        description: Precisão original da data de início (day, month, year) — o MAL aceita datas parciais.
+      - name: season_year
+        data_tests:
+          - value_between: {arguments: {min_value: 1910, max_value: 2035}}
+
+  - name: stg_mal__anime_genres
+    description: Gêneros, temas e demografias de cada anime (o MAL mistura os três no mesmo campo).
+    data_tests:
+      - unique_combination: {arguments: {columns: [mal_id, genre_id]}}
+    columns:
+      - name: mal_id
+        data_tests:
+          - relationships:
+              arguments: {to: ref('stg_mal__anime'), field: mal_id}
+
+  - name: stg_mal__anime_studios
+    description: Estúdios de animação de cada anime; is_main_studio marca o primeiro listado.
+    data_tests:
+      - unique_combination: {arguments: {columns: [mal_id, studio_id]}}
+
+  - name: stg_mal__anime_relations
+    description: Arestas do grafo de relações (sequel, prequel, side_story...). Base para as franquias.
+    data_tests:
+      - unique_combination: {arguments: {columns: [mal_id, related_mal_id, relation_type]}}
+
+  - name: stg_mal__user_animelist
+    description: Lista pública do usuário configurado (MAL_USERNAME), extração mais recente.
+    data_tests:
+      - unique_combination: {arguments: {columns: [username, mal_id]}}
+    columns:
+      - name: list_status
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [watching, completed, on_hold, dropped, plan_to_watch]
+      - name: user_score
+        data_tests:
+          - value_between: {arguments: {min_value: 1, max_value: 10}}
+
+  # ------------------------------------------------------------------ Jikan
+  - name: stg_jikan__score_distribution
+    description: Votos por nota (1–10) de cada anime. Permite medir dispersão/polarização, que a média esconde.
+    data_tests:
+      - unique_combination: {arguments: {columns: [mal_id, score]}}
+    columns:
+      - name: votes
+        data_tests:
+          - value_between: {arguments: {min_value: 0}}
+
+  - name: stg_jikan__recommendations
+    description: Pares (anime → anime recomendado) votados pela comunidade.
+    data_tests:
+      - unique_combination: {arguments: {columns: [mal_id, recommended_mal_id]}}
+
+  - name: stg_jikan__characters
+    description: Personagens e dubladores por anime (uma linha por anime × personagem × dublador).
+    columns:
+      - name: character_role
+        data_tests:
+          - accepted_values:
+              arguments: {values: [Main, Supporting]}
+
+  # ------------------------------------------------------------------ manami
+  - name: stg_manami__anime
+    description: >
+      anime-offline-database, snapshot mais recente, restrito a entradas com ID do MAL.
+      Traz IDs cruzados (AniList, Kitsu, AniDB), tags temáticas e a nota agregada entre sites.
+    columns:
+      - name: mal_id
+        data_tests: [unique, not_null]
+      - name: cross_site_score_median
+        description: Mediana da nota nos vários sites, normalizada para 1–10 pelo manami.
+        data_tests:
+          - value_between: {arguments: {min_value: 1, max_value: 10}}
+
+  - name: stg_manami__anime_tags
+    description: Tags temáticas (time travel, isekai, found family...), mais granulares que os gêneros do MAL.
+    data_tests:
+      - unique_combination: {arguments: {columns: [mal_id, tag]}}
+
+  # ------------------------------------------------------------------ Kaggle
+  - name: stg_kaggle__animelist
+    description: Interações usuário × anime (Kaggle, 2020) com usuário pseudonimizado.
+    columns:
+      - name: user_key
+        description: md5 do user_id original — não expomos o ID do dataset.
+        data_tests: [not_null]
+      - name: user_score
+        data_tests:
+          - value_between: {arguments: {min_value: 1, max_value: 10}}
+      - name: list_status
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [watching, completed, on_hold, dropped, plan_to_watch]
+              config: {severity: warn}

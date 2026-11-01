@@ -1,0 +1,135 @@
+version: 2
+
+models:
+  - name: dim_anime
+    description: '{{ doc("dim_anime") }}'
+    data_tests:
+      - row_count_at_least: {arguments: {min_rows: 1}}
+    columns:
+      - name: mal_id
+        data_tests: [unique, not_null]
+      - name: title
+        data_tests: [not_null]
+      - name: weighted_score
+        description: Nota bayesiana (ver int_anime__weighted_score).
+      - name: completion_rate
+        description: completed / (completed + dropped). Proxy de "quantos terminam o que começam".
+        data_tests:
+          - value_between: {arguments: {min_value: 0, max_value: 1}}
+      - name: polarization_index
+        description: 4 × share(9–10) × share(1–4). 0 = consenso, 1 = metade ama / metade odeia.
+      - name: franchise_id
+        description: Menor mal_id da franquia; animes avulsos são a própria franquia.
+        data_tests: [not_null]
+      - name: season_key
+        description: "Chave ordenável de temporada no formato 2024-Q4-fall."
+      - name: score_band
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['8.5+ excelente', '8.0–8.49 ótimo', '7.0–7.99 bom', '6.0–6.99 mediano', '< 6.0 fraco', 'sem nota']
+
+  - name: dim_genre
+    description: Gêneros/temas/demografias do MAL e quantos animes há em cada.
+    config:
+      contract: {enforced: true}
+    columns:
+      - name: genre_id
+        data_type: integer
+        constraints: [{type: not_null}]
+        data_tests: [unique]
+      - name: genre_name
+        data_type: varchar
+      - name: num_anime
+        data_type: bigint
+
+  - name: dim_studio
+    description: Estúdios de animação com volume e período de atividade.
+    config:
+      contract: {enforced: true}
+    columns:
+      - name: studio_id
+        data_type: integer
+        constraints: [{type: not_null}]
+        data_tests: [unique]
+      - name: studio_name
+        data_type: varchar
+      - name: num_anime
+        data_type: bigint
+      - name: num_anime_as_main
+        data_type: bigint
+      - name: first_year
+        data_type: integer
+      - name: last_year
+        data_type: integer
+
+  - name: dim_person
+    description: Dubladores (seiyuus) presentes nos elencos extraídos via Jikan.
+    columns:
+      - name: person_id
+        data_tests: [unique, not_null]
+
+  - name: dim_character
+    description: Personagens, com número de favoritos no MAL.
+    columns:
+      - name: character_id
+        data_tests: [unique, not_null]
+
+  - name: bridge_anime_genre
+    description: Anime × gênero (N:N). allocation_weight divide 1 entre os gêneros do anime para somas sem dupla contagem.
+    data_tests:
+      - unique_combination: {arguments: {columns: [mal_id, genre_id]}}
+    columns:
+      - name: mal_id
+        data_tests:
+          - relationships: {arguments: {to: ref('dim_anime'), field: mal_id}}
+      - name: genre_id
+        data_tests:
+          - relationships: {arguments: {to: ref('dim_genre'), field: genre_id}}
+
+  - name: bridge_anime_studio
+    description: Anime × estúdio (N:N).
+    columns:
+      - name: studio_id
+        data_tests:
+          - relationships: {arguments: {to: ref('dim_studio'), field: studio_id}}
+
+  - name: bridge_anime_cast
+    description: Anime × personagem × dublador.
+    columns:
+      - name: mal_id
+        data_tests:
+          - relationships: {arguments: {to: ref('dim_anime'), field: mal_id}}
+
+  - name: fct_anime_metrics_snapshot
+    description: >
+      Série temporal (incremental) de métricas por anime e dia de extração — nota, rank,
+      membros e contagem por status. Cresce a cada execução semanal do pipeline.
+    data_tests:
+      - unique_combination: {arguments: {columns: [mal_id, snapshot_date]}}
+    columns:
+      - name: num_list_users
+        data_tests:
+          - value_between: {arguments: {min_value: 0}}
+
+  - name: fct_user_rating
+    description: Interações usuário × anime (Kaggle 2020). Grão user_key × mal_id.
+    columns:
+      - name: user_key
+        data_tests: [not_null]
+      - name: mal_id
+        description: >
+          Pode haver IDs que não existem mais no MAL atual (dataset de 2020) —
+          por isso o teste de integridade é só um aviso.
+        data_tests:
+          - relationships:
+              arguments: {to: ref('dim_anime'), field: mal_id}
+              config: {severity: warn}
+
+  - name: fct_my_list
+    description: A sua lista do MAL enriquecida com a nota da comunidade e metadados.
+    data_tests:
+      - unique_combination: {arguments: {columns: [username, mal_id]}}
+    columns:
+      - name: score_delta
+        description: Sua nota menos a média do MAL. Positivo = você gostou mais que a média.

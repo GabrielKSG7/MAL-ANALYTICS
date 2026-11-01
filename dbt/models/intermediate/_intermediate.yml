@@ -1,0 +1,105 @@
+version: 2
+
+models:
+  - name: int_anime__franchises
+    description: Componentes conexos do grafo de relações (sequel, prequel, side story...) = franquias.
+    columns:
+      - name: mal_id
+        data_tests: [unique, not_null]
+      - name: franchise_id
+        description: Menor mal_id da franquia (estável e determinístico).
+        data_tests: [not_null]
+
+  - name: int_anime__score_dispersion
+    description: Forma da distribuição de notas — desvio-padrão, entropia e índice de polarização.
+    columns:
+      - name: mal_id
+        data_tests: [unique, not_null]
+      - name: polarization_index
+        data_tests:
+          - value_between: {arguments: {min_value: 0, max_value: 1}}
+      - name: normalized_entropy
+        data_tests:
+          - value_between: {arguments: {min_value: 0, max_value: 1.0001}}
+
+  - name: int_anime__weighted_score
+    description: Nota bayesiana (estilo IMDb) que penaliza títulos com poucos votos.
+    columns:
+      - name: mal_id
+        data_tests: [unique, not_null]
+      - name: weighted_score
+        data_tests:
+          - value_between: {arguments: {min_value: 1, max_value: 10}}
+
+  - name: int_users__ratings_normalized
+    description: Notas da base Kaggle normalizadas por usuário (centralizadas e z-score).
+    data_tests:
+      - unique_combination:
+          arguments: {columns: [user_key, mal_id]}
+          config: {severity: warn}
+
+unit_tests:
+  - name: franchise_joins_chain_and_ignores_weak_relations
+    description: >
+      A→B (sequel) e B→C (side_story) formam uma franquia só; D ligado a A por `character`
+      (relação fraca) fica numa franquia própria; E isolado é sua própria franquia.
+    model: int_anime__franchises
+    given:
+      - input: ref('stg_mal__anime')
+        rows:
+          - {mal_id: 10}
+          - {mal_id: 20}
+          - {mal_id: 30}
+          - {mal_id: 40}
+          - {mal_id: 50}
+      - input: ref('stg_mal__anime_relations')
+        rows:
+          - {mal_id: 10, related_mal_id: 20, relation_type: sequel}
+          - {mal_id: 20, related_mal_id: 30, relation_type: side_story}
+          - {mal_id: 40, related_mal_id: 10, relation_type: character}
+          - {mal_id: 30, related_mal_id: 999, relation_type: sequel}
+    expect:
+      rows:
+        - {mal_id: 10, franchise_id: 10, franchise_size: 3}
+        - {mal_id: 20, franchise_id: 10, franchise_size: 3}
+        - {mal_id: 30, franchise_id: 10, franchise_size: 3}
+        - {mal_id: 40, franchise_id: 40, franchise_size: 1}
+        - {mal_id: 50, franchise_id: 50, franchise_size: 1}
+
+  - name: polarization_index_extremes
+    description: Distribuição meio 10 / meio 1 tem índice 1; tudo em 7 tem índice 0 e entropia 0.
+    model: int_anime__score_dispersion
+    given:
+      - input: ref('stg_jikan__score_distribution')
+        rows:
+          - {mal_id: 1, score: 10, votes: 50}
+          - {mal_id: 1, score: 1, votes: 50}
+          - {mal_id: 2, score: 7, votes: 100}
+    expect:
+      rows:
+        - {mal_id: 1, total_votes: 100, polarization_index: 1.0, score_stddev: 4.5}
+        - {mal_id: 2, total_votes: 100, polarization_index: 0.0, score_stddev: 0.0}
+
+  - name: weighted_score_shrinks_low_vote_titles
+    description: Título com nota alta e poucos votos é puxado em direção à média global.
+    model: int_anime__weighted_score
+    overrides:
+      vars: {bayes_prior_percentile: 0.5}
+    given:
+      - input: ref('stg_mal__anime')
+        rows:
+          - {mal_id: 1, mean_score: 9.0, num_scoring_users: 100}
+          - {mal_id: 2, mean_score: 7.0, num_scoring_users: 10000}
+          - {mal_id: 3, mean_score: 8.0, num_scoring_users: 1000}
+    expect:
+      format: sql
+      rows: |
+        select 1::integer as mal_id, 9.0::double as mean_score, 100::bigint as num_scoring_users,
+               8.0::double as global_mean, 1000.0::double as prior_votes,
+               (100 / (100 + 1000.0)) * 9.0 + (1000.0 / (100 + 1000.0)) * 8.0 as weighted_score
+        union all
+        select 2, 7.0, 10000, 8.0, 1000.0,
+               (10000 / (10000 + 1000.0)) * 7.0 + (1000.0 / (10000 + 1000.0)) * 8.0
+        union all
+        select 3, 8.0, 1000, 8.0, 1000.0,
+               (1000 / (1000 + 1000.0)) * 8.0 + (1000.0 / (1000 + 1000.0)) * 8.0

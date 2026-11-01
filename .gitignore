@@ -1,0 +1,30 @@
+# dados (nunca versionar bases extraídas)
+data/
+*.duckdb
+*.duckdb.wal
+
+# segredos
+.env
+
+# python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+build/
+dist/
+
+# dbt
+dbt/target/
+dbt/logs/
+dbt/dbt_packages/
+dbt/.user.yml
+
+# editores / SO
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

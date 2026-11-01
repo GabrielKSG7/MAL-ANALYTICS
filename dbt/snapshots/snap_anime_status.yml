@@ -1,0 +1,12 @@
+snapshots:
+  - name: snap_anime_status
+    description: >
+      SCD tipo 2 de atributos que mudam raramente (status de exibição, episódios, título).
+      Responde perguntas como "quando este anime passou de not_yet_aired para currently_airing?"
+      ou "quantas vezes o número de episódios anunciado mudou?".
+    relation: ref('stg_mal__anime')
+    config:
+      unique_key: mal_id
+      strategy: check
+      check_cols: [airing_status, num_episodes, title, media_type]
+      hard_deletes: invalidate

@@ -1,0 +1,56 @@
+name: mal_analytics
+version: "0.1.0"
+config-version: 2
+profile: mal_analytics
+
+model-paths: ["models"]
+macro-paths: ["macros"]
+test-paths: ["tests"]
+snapshot-paths: ["snapshots"]
+seed-paths: ["seeds"]
+analysis-paths: ["analyses"]
+
+clean-targets: ["target", "dbt_packages"]
+
+vars:
+  # Ranking bayesiano (fórmula IMDb): m = percentil de num_scoring_users usado como "prior".
+  bayes_prior_percentile: 0.75
+  # Mínimo de títulos para um estúdio entrar no ranking de estúdios.
+  studio_min_titles: 5
+  # Mínimo de votos para entrar na análise de polarização.
+  polarization_min_votes: 500
+  # "Joia escondida" = nota bayesiana alta e popularidade abaixo deste percentil de membros.
+  hidden_gem_max_members_pct: 0.30
+  # Mínimo de avaliações para um usuário entrar nas análises de comportamento.
+  user_min_ratings: 5
+  # Relações do MAL que definem uma "franquia" (componentes conexos do grafo).
+  franchise_relation_types: ["sequel", "prequel", "parent_story", "side_story", "full_story", "summary", "alternative_version"]
+
+models:
+  mal_analytics:
+    +persist_docs:
+      relation: true
+      columns: true
+    staging:
+      +materialized: view
+      +schema: staging
+    intermediate:
+      +materialized: view
+      +schema: intermediate
+    marts:
+      +materialized: table
+      core:
+        +schema: core
+      analytics:
+        +schema: analytics
+
+snapshots:
+  mal_analytics:
+    +schema: snapshots
+
+data_tests:
+  mal_analytics:
+    +store_failures: false
+
+flags:
+  send_anonymous_usage_stats: false

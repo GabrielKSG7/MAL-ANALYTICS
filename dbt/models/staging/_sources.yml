@@ -1,0 +1,44 @@
+version: 2
+
+sources:
+  - name: bronze
+    description: >
+      Camada bronze gravada pelo pacote Python `malpipe`. Append-only: cada extração é uma nova
+      linha com o JSON cru da API, o status HTTP e o horário. O histórico é preservado e os
+      modelos de staging escolhem a versão mais recente quando precisam do estado atual.
+    schema: bronze
+    config:
+      loaded_at_field: extracted_at
+      freshness:
+        warn_after: {count: 10, period: day}
+        error_after: {count: 45, period: day}
+    tables:
+      - name: mal_anime_discovery
+        description: IDs encontrados via ranking/temporadas da MAL API v2.
+      - name: mal_anime
+        description: Detalhe completo de cada anime (GET /anime/{id}) — uma linha por extração.
+        columns:
+          - name: mal_id
+            data_tests: [not_null]
+          - name: http_status
+            data_tests:
+              - accepted_values:
+                  arguments:
+                    values: [0, 200, 400, 403, 404, 429, 500, 502, 503, 504]
+                  config:
+                    severity: warn
+      - name: mal_user_animelist
+        description: Itens da lista pública de um usuário (GET /users/{name}/animelist).
+      - name: jikan_statistics
+        description: Jikan /anime/{id}/statistics — inclui a distribuição de notas 1–10.
+      - name: jikan_recommendations
+        description: Jikan /anime/{id}/recommendations — recomendações votadas pelos usuários.
+      - name: jikan_characters
+        description: Jikan /anime/{id}/characters — personagens e dubladores.
+      - name: manami_anime
+        description: anime-offline-database (manami-project), um snapshot semanal por dataset_date.
+      - name: kaggle_animelist
+        description: Interações usuário × anime do dataset Kaggle hernan4444 (2020).
+        config:
+          loaded_at_field: loaded_at
+          freshness: null

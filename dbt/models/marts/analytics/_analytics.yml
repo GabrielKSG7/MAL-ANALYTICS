@@ -1,0 +1,119 @@
+version: 2
+
+models:
+  - name: mart_studio_performance
+    description: Ranking de estúdios por qualidade (nota bayesiana ponderada), consistência e alcance.
+    columns:
+      - name: studio_id
+        data_tests: [unique, not_null]
+      - name: num_titles
+        data_tests:
+          - value_between: {arguments: {min_value: "{{ var('studio_min_titles') }}"}}
+
+  - name: mart_season_trends
+    description: Panorama por temporada — volume, nota, destaque, peso de sequências e de cada origem.
+    columns:
+      - name: season_key
+        data_tests: [unique, not_null]
+
+  - name: mart_score_inflation
+    description: Distribuição de notas por ano de estreia, para investigar inflação de notas.
+    columns:
+      - name: season_year
+        data_tests: [unique, not_null]
+
+  - name: mart_genre_trends
+    description: Gênero × ano — participação no catálogo, nota média e audiência.
+    data_tests:
+      - unique_combination: {arguments: {columns: [season_year, genre_id]}}
+    columns:
+      - name: share_of_year
+        data_tests:
+          - value_between: {arguments: {min_value: 0, max_value: 1}}
+
+  - name: mart_polarizing_anime
+    description: Animes mais polarizadores ("ame ou odeie"), com volume mínimo de votos.
+    columns:
+      - name: mal_id
+        data_tests: [unique, not_null]
+
+  - name: mart_hidden_gems
+    description: Alta nota bayesiana e baixa popularidade — boas descobertas.
+    columns:
+      - name: mal_id
+        data_tests: [unique, not_null]
+
+  - name: mart_franchise_summary
+    description: Resumo por franquia (2+ entradas) com evolução da nota ao longo das temporadas.
+    columns:
+      - name: franchise_id
+        data_tests: [unique, not_null]
+      - name: num_entries
+        data_tests:
+          - value_between: {arguments: {min_value: 2}}
+
+  - name: mart_anime_trending
+    description: Variação de nota, membros e rank entre as duas extrações mais recentes de cada anime.
+    columns:
+      - name: mal_id
+        data_tests: [unique, not_null]
+
+  - name: mart_drop_rate_by_genre
+    description: Taxa de abandono por gênero a partir do comportamento real dos usuários (Kaggle).
+    columns:
+      - name: genre_id
+        data_tests: [unique, not_null]
+      - name: drop_rate
+        data_tests:
+          - value_between: {arguments: {min_value: 0, max_value: 1}}
+
+  - name: mart_my_profile_vs_mal
+    description: Sua nota vs a da comunidade por gênero, estúdio, formato e década (formato longo).
+    data_tests:
+      - unique_combination: {arguments: {columns: [username, dimension, value]}}
+    columns:
+      - name: dimension
+        data_tests:
+          - accepted_values:
+              arguments: {values: [genre, studio, media_type, decade, overall]}
+
+  - name: mart_seiyuu_network
+    description: Arestas do grafo de dubladores (co-protagonismo), prontas para Gephi/NetworkX.
+    data_tests:
+      - unique_combination: {arguments: {columns: [person_a, person_b]}}
+
+exposures:
+  - name: streamlit_dashboard
+    label: Dashboard MAL Analytics (Streamlit)
+    type: dashboard
+    maturity: medium
+    url: http://localhost:8501
+    description: Painel local com visão geral, estúdios, temporadas, polarização, franquias, meu perfil e recomendações.
+    depends_on:
+      - ref('dim_anime')
+      - ref('mart_studio_performance')
+      - ref('mart_season_trends')
+      - ref('mart_score_inflation')
+      - ref('mart_genre_trends')
+      - ref('mart_polarizing_anime')
+      - ref('mart_hidden_gems')
+      - ref('mart_franchise_summary')
+      - ref('mart_anime_trending')
+      - ref('mart_drop_rate_by_genre')
+      - ref('mart_my_profile_vs_mal')
+      - ref('fct_my_list')
+    owner:
+      name: Gabriel Silva Grande
+
+  - name: recommender
+    label: Recomendador (malpipe.recsys)
+    type: ml
+    maturity: medium
+    description: Treina item-kNN, SVD e baseline de popularidade sobre fct_user_rating e recomenda para a sua lista.
+    depends_on:
+      - ref('fct_user_rating')
+      - ref('fct_my_list')
+      - ref('dim_anime')
+      - ref('stg_jikan__recommendations')
+    owner:
+      name: Gabriel Silva Grande
