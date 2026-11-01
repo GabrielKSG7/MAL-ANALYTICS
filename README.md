@@ -137,7 +137,7 @@ Rotina semanal: `malpipe incremental && make build` — agendamento no Windows e
 ### Comandos
 
 ```
-malpipe init | status | sample | manami | discover | mal-details | jikan | my-list | kaggle | incremental | recommend
+malpipe init | status | sample | manami | discover | mal-details | jikan | my-list | kaggle | incremental | recommend | dbt
 make demo | ingest | build | dbt-build | dbt-docs | recommend | dashboard | test | lint
 ```
 

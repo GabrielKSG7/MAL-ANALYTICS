@@ -8,12 +8,12 @@
 param([Parameter(Position = 0)][string]$Task = "help")
 
 $Root = Split-Path -Parent $PSScriptRoot
-if (-not $env:DUCKDB_PATH) { $env:DUCKDB_PATH = Join-Path $Root "data\mal.duckdb" }
-$env:DBT_PROFILES_DIR = Join-Path $Root "dbt"
+# O caminho do banco vem do .env (DUCKDB_PATH) e é aplicado igualmente ao pipeline, ao dbt e ao
+# dashboard — `malpipe dbt` repassa o caminho para o dbt.
 
 function Invoke-Dbt([string[]]$DbtArgs) {
-    Push-Location (Join-Path $Root "dbt")
-    try { dbt @DbtArgs; if ($LASTEXITCODE -ne 0) { throw "dbt falhou" } } finally { Pop-Location }
+    malpipe dbt @DbtArgs
+    if ($LASTEXITCODE -ne 0) { throw "dbt falhou" }
 }
 
 switch ($Task) {

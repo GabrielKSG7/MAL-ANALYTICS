@@ -18,7 +18,12 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
-DB_PATH = Path(os.getenv("DUCKDB_PATH", Path(__file__).resolve().parents[1] / "data" / "mal.duckdb"))
+try:  # mesma regra do pipeline: lê DUCKDB_PATH do .env (caminho relativo = raiz do projeto)
+    from malpipe.config import get_settings
+
+    DB_PATH = get_settings().duckdb_path
+except ImportError:
+    DB_PATH = Path(os.getenv("DUCKDB_PATH", Path(__file__).resolve().parents[1] / "data" / "mal.duckdb"))
 
 BLUE = "#2a78d6"
 RED = "#e34948"

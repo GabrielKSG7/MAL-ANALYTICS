@@ -1,8 +1,7 @@
 # Atalhos do projeto. No Windows, use o equivalente em scripts/tasks.ps1.
 SHELL := /bin/bash
-export DUCKDB_PATH ?= $(CURDIR)/data/mal.duckdb
-export DBT_PROFILES_DIR := $(CURDIR)/dbt
-DBT := cd dbt && dbt
+# O caminho do banco vem do .env (DUCKDB_PATH); `malpipe dbt` repassa o mesmo caminho para o dbt.
+DBT := malpipe dbt
 
 .PHONY: help install demo ingest build dbt-build dbt-docs recommend dashboard test lint status clean
 

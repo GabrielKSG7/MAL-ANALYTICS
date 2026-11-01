@@ -215,6 +215,24 @@ def recommend(
     )
 
 
+@app.command(
+    "dbt",
+    context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+)
+def dbt_cmd(ctx: typer.Context) -> None:
+    """Roda o dbt (ex.: `malpipe dbt build`) apontando para o MESMO banco do .env."""
+    import os
+    import subprocess
+
+    from malpipe.config import PROJECT_ROOT
+
+    settings = get_settings()
+    env = os.environ | {"DUCKDB_PATH": str(settings.duckdb_path), "DBT_PROFILES_DIR": str(PROJECT_ROOT / "dbt")}
+    console.print(f"dbt → {settings.duckdb_path}")
+    code = subprocess.call(["dbt", *(ctx.args or ["build"])], cwd=PROJECT_ROOT / "dbt", env=env)
+    raise typer.Exit(code)
+
+
 @app.command()
 def status() -> None:
     """Contagem por tabela, últimas execuções e fila pendente."""
@@ -234,7 +252,14 @@ def status() -> None:
     console.print(r)
 
     pending = len(wh.pending_ids("bronze.mal_anime", settings.refresh_days, wh.known_mal_ids_sql()))
-    console.print(f"Pendentes em mal_anime: [bold]{pending:,}[/]")
+    ok = wh.con.execute("SELECT count(DISTINCT mal_id) FROM bronze.mal_anime WHERE http_status = 200").fetchone()[0]
+    mine = wh.con.execute(
+        """SELECT count(DISTINCT l.id), count(DISTINCT a.mal_id) FROM (
+               SELECT TRY_CAST(payload->>'$.node.id' AS INTEGER) AS id FROM bronze.mal_user_animelist) l
+           LEFT JOIN bronze.mal_anime a ON a.mal_id = l.id AND a.http_status = 200"""
+    ).fetchone()
+    console.print(f"Animes com detalhe do MAL: [bold]{ok:,}[/] · pendentes: [bold]{pending:,}[/]")
+    console.print(f"Sua lista: [bold]{mine[0]:,}[/] animes, [bold]{mine[1]:,}[/] já com detalhe")
     wh.close()
 
 

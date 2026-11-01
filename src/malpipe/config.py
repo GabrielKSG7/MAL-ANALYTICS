@@ -17,6 +17,13 @@ load_dotenv(ENV_FILE, encoding="utf-8-sig")
 load_dotenv(Path.cwd() / ".env", encoding="utf-8-sig")  # fallback: .env na pasta atual
 
 
+def _project_path(name: str, default: str) -> Path:
+    """Caminho vindo do .env; se for relativo, é resolvido a partir da raiz do projeto
+    (e não da pasta atual), para o Python, o dbt e o dashboard enxergarem o MESMO arquivo."""
+    path = Path(os.getenv(name, default)).expanduser()
+    return path if path.is_absolute() else (PROJECT_ROOT / path).resolve()
+
+
 def _float(name: str, default: float) -> float:
     return float(os.getenv(name, default))
 
@@ -34,10 +41,8 @@ class Settings:
       (que, por trás, raspa o próprio MAL).
     """
 
-    duckdb_path: Path = field(
-        default_factory=lambda: Path(os.getenv("DUCKDB_PATH", PROJECT_ROOT / "data" / "mal.duckdb"))
-    )
-    data_dir: Path = field(default_factory=lambda: Path(os.getenv("DATA_DIR", PROJECT_ROOT / "data")))
+    duckdb_path: Path = field(default_factory=lambda: _project_path("DUCKDB_PATH", "data/mal.duckdb"))
+    data_dir: Path = field(default_factory=lambda: _project_path("DATA_DIR", "data"))
 
     mal_client_id: str | None = field(default_factory=lambda: os.getenv("MAL_CLIENT_ID"))
     mal_username: str | None = field(default_factory=lambda: os.getenv("MAL_USERNAME"))

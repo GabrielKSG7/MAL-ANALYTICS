@@ -75,3 +75,12 @@ def test_dotenv_with_bom_is_read(tmp_path, monkeypatch):
     env = tmp_path / ".env"
     env.write_bytes("﻿MAL_USERNAME=gabu\nMAL_RPS=1.0\n".encode())
     assert dotenv_values(env, encoding="utf-8-sig")["MAL_USERNAME"] == "gabu"
+
+
+def test_relative_duckdb_path_resolves_from_project_root(monkeypatch):
+    from malpipe.config import PROJECT_ROOT, Settings
+
+    monkeypatch.setenv("DUCKDB_PATH", "data/x.duckdb")
+    assert Settings().duckdb_path == (PROJECT_ROOT / "data" / "x.duckdb").resolve()
+    monkeypatch.setenv("DUCKDB_PATH", "/abs/y.duckdb")
+    assert str(Settings().duckdb_path).replace("\\", "/").endswith("/abs/y.duckdb")
