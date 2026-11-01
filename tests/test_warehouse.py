@@ -38,3 +38,13 @@ def test_known_ids_include_manami_mal_sources(wh):
     )  # fmt: skip
     ids = sorted(r[0] for r in wh.con.execute(wh.known_mal_ids_sql()).fetchall())
     assert ids == [7, 42]
+
+
+def test_pending_ids_prioritizes_my_list(wh):
+    candidates = "SELECT * FROM (VALUES (1), (2), (3), (50)) t(mal_id)"
+    wh.insert_rows(
+        "bronze.mal_user_animelist",
+        ("username", "payload", "extracted_at", "run_id"),
+        [("eu", '{"node": {"id": 50}}', utcnow(), "r"), ("eu", '{"node": {"id": 3}}', utcnow(), "r")],
+    )
+    assert wh.pending_ids("bronze.mal_anime", 7, candidates) == [3, 50, 1, 2]

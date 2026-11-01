@@ -175,19 +175,28 @@ class Warehouse:
                        AND extracted_at >= now()::TIMESTAMP - INTERVAL ({refresh_days}) DAY)
                       {not_found_clause}
             )
+            , mine AS (
+                -- prioridade: animes da sua lista entram primeiro na fila, para o painel
+                -- "Meu perfil" e as recomendações ficarem prontos em minutos, não em horas
+                SELECT DISTINCT TRY_CAST(payload->>'$.node.id' AS INTEGER) AS mal_id
+                FROM bronze.mal_user_animelist
+            )
             SELECT c.mal_id FROM candidates c
             LEFT JOIN done d USING (mal_id)
+            LEFT JOIN mine m USING (mal_id)
             WHERE d.mal_id IS NULL
-            ORDER BY c.mal_id
+            ORDER BY (m.mal_id IS NULL), c.mal_id
         """
         if limit:
             sql += f" LIMIT {int(limit)}"
         return [r[0] for r in self.con.execute(sql).fetchall()]
 
     def known_mal_ids_sql(self) -> str:
-        """Universo de IDs conhecidos: descobertos via MAL + presentes no manami."""
+        """Universo de IDs conhecidos: descobertos via MAL + sua lista + presentes no manami."""
         return """
             SELECT DISTINCT mal_id FROM bronze.mal_anime_discovery
+            UNION
+            SELECT DISTINCT TRY_CAST(payload->>'$.node.id' AS INTEGER) FROM bronze.mal_user_animelist
             UNION
             SELECT DISTINCT TRY_CAST(regexp_extract(s.src, 'myanimelist\\.net/anime/(\\d+)', 1) AS INTEGER)
             FROM (SELECT unnest(from_json(payload->'sources', '["VARCHAR"]')) AS src FROM bronze.manami_anime) s

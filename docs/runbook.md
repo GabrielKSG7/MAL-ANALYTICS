@@ -8,6 +8,7 @@ malpipe init
 malpipe manami                    # ~30 mil IDs do MAL em segundos
 malpipe discover --seasons 1960-2027   # completa o universo de IDs (≈ 270 chamadas)
 malpipe status                    # mostra quantos IDs estão na fila e o tempo estimado
+malpipe my-list                   # antes dos detalhes: os animes da sua lista vão para o topo da fila
 
 # carga longa: pode ser feita em partes; o checkpoint retoma de onde parou
 malpipe mal-details --limit 5000
@@ -16,7 +17,6 @@ malpipe mal-details               # o restante
 malpipe jikan statistics          # distribuição de notas (polarização)
 malpipe jikan recommendations     # opcional: avaliação externa do recomendador
 malpipe jikan characters          # opcional: grafo de dubladores
-malpipe my-list
 
 # Kaggle (ver docs/data-sources.md para o download)
 malpipe kaggle data/raw/animelist.csv
