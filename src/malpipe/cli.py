@@ -140,7 +140,10 @@ def my_list(username: Annotated[str | None, typer.Option(help="Default: MAL_USER
     settings = get_settings()
     username = username or settings.mal_username
     if not username:
-        raise typer.BadParameter("informe --username ou MAL_USERNAME no .env")
+        from malpipe.config import ENV_FILE
+
+        hint = "" if ENV_FILE.exists() else f" (arquivo não encontrado: {ENV_FILE})"
+        raise typer.BadParameter(f"informe --username ou MAL_USERNAME no .env{hint}")
     wh = _wh()
     with wh.run("my-list") as run, mal_api.build_client(settings) as client:
         n = mal_api.fetch_user_list(client, wh, run, username)

@@ -67,3 +67,11 @@ def test_manami_detects_zstd_by_magic_bytes_not_extension(tmp_path):
     path = tmp_path / "download.bin"  # extensão "errada"
     path.write_bytes(zstandard.ZstdCompressor().compress(b'{"data": [1]}'))
     assert manami.read_dataset(path) == {"data": [1]}
+
+
+def test_dotenv_with_bom_is_read(tmp_path, monkeypatch):
+    from dotenv import dotenv_values
+
+    env = tmp_path / ".env"
+    env.write_bytes("﻿MAL_USERNAME=gabu\nMAL_RPS=1.0\n".encode())
+    assert dotenv_values(env, encoding="utf-8-sig")["MAL_USERNAME"] == "gabu"

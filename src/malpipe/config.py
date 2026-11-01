@@ -8,9 +8,13 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-load_dotenv()
-
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
+ENV_FILE = PROJECT_ROOT / ".env"
+
+# utf-8-sig: o Bloco de Notas/PowerShell do Windows costumam gravar BOM no início do arquivo,
+# o que faria a primeira variável do .env não ser reconhecida.
+load_dotenv(ENV_FILE, encoding="utf-8-sig")
+load_dotenv(Path.cwd() / ".env", encoding="utf-8-sig")  # fallback: .env na pasta atual
 
 
 def _float(name: str, default: float) -> float:

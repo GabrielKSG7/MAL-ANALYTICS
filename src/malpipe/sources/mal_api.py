@@ -39,9 +39,11 @@ LIST_PAGE_LIMIT = 1000  # máximo aceito por user animelist
 
 def build_client(settings: Settings, **kwargs) -> PoliteClient:
     if not settings.mal_client_id:
+        from malpipe.config import ENV_FILE
+
         raise RuntimeError(
             "MAL_CLIENT_ID não configurado. Crie um app em https://myanimelist.net/apiconfig "
-            "e coloque o Client ID no arquivo .env"
+            f"e coloque o Client ID em {ENV_FILE}" + ("" if ENV_FILE.exists() else " (arquivo não existe)")
         )
     return PoliteClient(
         base_url=settings.mal_base_url,
