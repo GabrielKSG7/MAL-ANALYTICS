@@ -1,6 +1,6 @@
 # MAL Analytics — engenharia e analytics engineering sobre o MyAnimeList
 
-[![CI](https://github.com/GabrielKSG7/mal-anime-analytics/actions/workflows/ci.yml/badge.svg)](https://github.com/GabrielKSG7/mal-anime-analytics/actions/workflows/ci.yml)
+[![CI](https://github.com/GabrielKSG7/MAL-ANALYTICS/actions/workflows/ci.yml/badge.svg)](https://github.com/GabrielKSG7/MAL-ANALYTICS/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.11%2B-blue)
 ![dbt](https://img.shields.io/badge/dbt-1.8%2B-orange)
 ![DuckDB](https://img.shields.io/badge/DuckDB-warehouse-yellow)
@@ -108,8 +108,8 @@ Detalhes: [docs/architecture.md](docs/architecture.md) · limites e termos de us
 ### 1. Demonstração em 1 minuto (sem credenciais)
 
 ```bash
-git clone https://github.com/GabrielKSG7/mal-anime-analytics.git
-cd mal-anime-analytics
+git clone https://github.com/GabrielKSG7/MAL-ANALYTICS.git
+cd MAL-ANALYTICS
 python -m venv .venv && source .venv/bin/activate     # Windows: .venv\Scripts\Activate.ps1
 pip install -e ".[dev,dashboard]"
 
