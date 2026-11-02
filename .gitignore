@@ -3,6 +3,9 @@ data/
 *.duckdb
 *.duckdb.wal
 
+# exportações locais
+exports/
+
 # segredos
 .env
 

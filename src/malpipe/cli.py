@@ -233,6 +233,41 @@ def dbt_cmd(ctx: typer.Context) -> None:
     raise typer.Exit(code)
 
 
+DEFAULT_EXPORTS = (
+    "analytics.mart_studio_performance",
+    "analytics.mart_score_inflation",
+    "analytics.mart_hidden_gems",
+    "analytics.mart_franchise_summary",
+    "analytics.mart_polarizing_anime",
+    "analytics.mart_season_trends",
+    "analytics.mart_my_profile_vs_mal",
+    "core.fct_my_list",
+    "ml.recommendations_for_user",
+)
+
+
+@app.command()
+def export(
+    tables: Annotated[list[str] | None, typer.Argument(help="schema.tabela; padrão: principais marts.")] = None,
+    out: Annotated[Path, typer.Option(help="Pasta de destino dos CSVs.")] = Path("exports"),
+) -> None:
+    """Exporta tabelas do warehouse para CSV (para Excel, Power BI ou compartilhar)."""
+    import duckdb
+
+    settings = get_settings()
+    out.mkdir(parents=True, exist_ok=True)
+    con = duckdb.connect(str(settings.duckdb_path), read_only=True)
+    for table in tables or DEFAULT_EXPORTS:
+        target = out / f"{table.replace('.', '__')}.csv"
+        try:
+            con.execute(f"COPY (SELECT * FROM {table}) TO '{target.as_posix()}' (HEADER, DELIMITER ',')")
+            n = con.execute(f"SELECT count(*) FROM {table}").fetchone()[0]
+            console.print(f"[green]ok[/] {table} → {target} ({n:,} linhas)")
+        except duckdb.Error as exc:
+            console.print(f"[yellow]pulado[/] {table}: {exc.__class__.__name__}")
+    con.close()
+
+
 @app.command()
 def status() -> None:
     """Contagem por tabela, últimas execuções e fila pendente."""
