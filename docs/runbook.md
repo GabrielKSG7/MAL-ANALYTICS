@@ -79,6 +79,8 @@ malpipe incremental && make build
 | `AniList rejeitou a consulta` | Erro de GraphQL (schema mudou) | Veja a mensagem no log; a carga para após 3 erros seguidos para não gravar lixo. |
 | AniList muito lenta / 429 | Modo degradado (30 req/min) | Normal. Mantenha `ANILIST_RPS=0.45`; o `Retry-After` é respeitado. |
 | Kitsu com 0 pendentes | Falta o mapa de IDs | Rode `malpipe manami` e depois `malpipe kitsu`. |
+| `pip install` cai em "Defaulting to user installation" e falha com `OSError: No such file` num caminho longo | venv não ativado — o pip instalou no Python da Microsoft Store, cujo caminho estoura o limite de 260 caracteres do Windows | `.\.venv\Scripts\Activate.ps1` (o prompt passa a mostrar `(.venv)`) e rode o `pip install -e .` de novo. |
+| `git pull` pergunta "Deletion of directory '.git/objects/..' failed. Should I try again?" | O OneDrive está sincronizando a pasta `.git` e trava os arquivos durante a limpeza automática do Git | Responda `n` (o pull já foi aplicado) e rode uma vez `git config gc.auto 0`. Melhor ainda: deixar o repositório fora do OneDrive. |
 | Quero reprocessar tudo do zero | — | `dbt build --full-refresh`. O bronze não muda; não há nova chamada às APIs. |
 
 ## Consultas úteis
