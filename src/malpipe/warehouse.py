@@ -12,6 +12,7 @@ Decisões (ver docs/adr/002-bronze-append-only-json.md):
 from __future__ import annotations
 
 import json
+import threading
 import uuid
 from collections.abc import Iterable, Sequence
 from contextlib import contextmanager
@@ -96,6 +97,51 @@ DDL = [
     """,
 ]
 
+# --- ecossistema: mangá (MAL API), elenco/staff/estúdios (AniList) e episódios (Kitsu)
+DDL += [
+    """
+    CREATE TABLE IF NOT EXISTS bronze.mal_manga_discovery (
+        mal_id         INTEGER NOT NULL,
+        discovered_via VARCHAR NOT NULL,
+        extracted_at   TIMESTAMP NOT NULL,
+        run_id         VARCHAR NOT NULL
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS bronze.mal_manga (
+        mal_id        INTEGER NOT NULL,
+        http_status   INTEGER NOT NULL,
+        payload       JSON,
+        error         VARCHAR,
+        extracted_at  TIMESTAMP NOT NULL,
+        run_id        VARCHAR NOT NULL
+    )
+    """,
+    # payload = Media da AniList com TODAS as páginas de personagens/staff já mescladas
+    """
+    CREATE TABLE IF NOT EXISTS bronze.anilist_media (
+        mal_id        INTEGER NOT NULL,
+        http_status   INTEGER NOT NULL,
+        payload       JSON,
+        error         VARCHAR,
+        extracted_at  TIMESTAMP NOT NULL,
+        run_id        VARCHAR NOT NULL
+    )
+    """,
+    # payload = lista com todos os episódios do anime (todas as páginas do Kitsu)
+    """
+    CREATE TABLE IF NOT EXISTS bronze.kitsu_episodes (
+        mal_id        INTEGER NOT NULL,
+        kitsu_id      INTEGER,
+        http_status   INTEGER NOT NULL,
+        payload       JSON,
+        error         VARCHAR,
+        extracted_at  TIMESTAMP NOT NULL,
+        run_id        VARCHAR NOT NULL
+    )
+    """,
+]
+
 JIKAN_ENTITIES = ("statistics", "recommendations", "characters")
 
 
@@ -109,6 +155,9 @@ class Warehouse:
         if not read_only:
             self.path.parent.mkdir(parents=True, exist_ok=True)
         self.con = duckdb.connect(str(self.path), read_only=read_only)
+        # várias fontes podem extrair em paralelo (threads); o DuckDB exige serializar o uso
+        # de uma mesma conexão, então todo acesso passa por este lock.
+        self.lock = threading.RLock()
         if not read_only:
             self.init_schema()
 
@@ -124,10 +173,11 @@ class Warehouse:
     def run(self, command: str):
         """Registra uma execução em meta.runs (sucesso/falha + linhas gravadas)."""
         run = RunContext(self, command)
-        self.con.execute(
-            "INSERT INTO meta.runs (run_id, command, started_at, status) VALUES (?, ?, ?, 'running')",
-            [run.run_id, command, utcnow()],
-        )
+        with self.lock:
+            self.con.execute(
+                "INSERT INTO meta.runs (run_id, command, started_at, status) VALUES (?, ?, ?, 'running')",
+                [run.run_id, command, utcnow()],
+            )
         try:
             yield run
         except BaseException as exc:
@@ -137,13 +187,18 @@ class Warehouse:
             self._finish_run(run, "success", run.notes)
 
     def _finish_run(self, run: RunContext, status: str, notes: str | None) -> None:
-        self.con.execute(
-            "UPDATE meta.runs SET finished_at = ?, status = ?, rows_written = ?, notes = ? WHERE run_id = ?",
-            [utcnow(), status, run.rows_written, notes, run.run_id],
-        )
+        with self.lock:
+            self.con.execute(
+                "UPDATE meta.runs SET finished_at = ?, status = ?, rows_written = ?, notes = ? WHERE run_id = ?",
+                [utcnow(), status, run.rows_written, notes, run.run_id],
+            )
 
     # ---------------------------------------------------------------- writes
     def insert_rows(self, table: str, columns: Sequence[str], rows: Iterable[Sequence]) -> int:
+        with self.lock:
+            return self._insert_rows(table, columns, rows)
+
+    def _insert_rows(self, table: str, columns: Sequence[str], rows: Iterable[Sequence]) -> int:
         rows = list(rows)
         if not rows:
             return 0
@@ -189,7 +244,8 @@ class Warehouse:
         """
         if limit:
             sql += f" LIMIT {int(limit)}"
-        return [r[0] for r in self.con.execute(sql).fetchall()]
+        with self.lock:
+            return [r[0] for r in self.con.execute(sql).fetchall()]
 
     def known_mal_ids_sql(self) -> str:
         """Universo de IDs conhecidos: descobertos via MAL + sua lista + presentes no manami."""
@@ -202,6 +258,49 @@ class Warehouse:
             FROM (SELECT unnest(from_json(payload->'sources', '["VARCHAR"]')) AS src FROM bronze.manami_anime) s
             WHERE s.src LIKE '%myanimelist.net/anime/%'
         """
+
+    def done_ids(self, table: str, refresh_days: int) -> set[int]:
+        """IDs já resolvidos em `table`: sucesso recente ou 404 (não existe na fonte)."""
+        sql = f"""
+            SELECT DISTINCT mal_id FROM {table}
+            WHERE (http_status BETWEEN 200 AND 299
+                   AND extracted_at >= now()::TIMESTAMP - INTERVAL ({int(refresh_days)}) DAY)
+               OR http_status = 404
+        """
+        with self.lock:
+            return {r[0] for r in self.con.execute(sql).fetchall()}
+
+    def known_manga_ids_sql(self) -> str:
+        return "SELECT DISTINCT mal_id FROM bronze.mal_manga_discovery"
+
+    def kitsu_candidates(self) -> dict[int, int]:
+        """mal_id → kitsu_id para animes seriados (TV/ONA/OVA/especiais) com detalhe do MAL.
+
+        O vínculo vem do anime-offline-database; filmes, clipes e comerciais ficam de fora porque
+        têm um único "episódio" e não agregam nada na tabela de episódios.
+        """
+        sql = """
+            WITH manami AS (
+                SELECT
+                    TRY_CAST(regexp_extract(list_filter(from_json(payload->'sources', '["VARCHAR"]'),
+                        lambda s: s LIKE '%myanimelist.net/anime/%')[1], 'anime/(\\d+)', 1) AS INTEGER) AS mal_id,
+                    TRY_CAST(regexp_extract(list_filter(from_json(payload->'sources', '["VARCHAR"]'),
+                        lambda s: s LIKE '%kitsu.%/anime/%')[1], 'anime/(\\d+)', 1) AS INTEGER) AS kitsu_id
+                FROM bronze.manami_anime
+                QUALIFY dataset_date IS NOT DISTINCT FROM max(dataset_date) OVER ()
+            ),
+            mal AS (
+                SELECT mal_id, payload->>'$.media_type' AS media_type
+                FROM bronze.mal_anime WHERE http_status = 200
+                QUALIFY row_number() OVER (PARTITION BY mal_id ORDER BY extracted_at DESC) = 1
+            )
+            SELECT m.mal_id, any_value(m.kitsu_id)
+            FROM manami m JOIN mal USING (mal_id)
+            WHERE m.kitsu_id IS NOT NULL AND mal.media_type IN ('tv', 'ona', 'ova', 'special', 'tv_special')
+            GROUP BY m.mal_id
+        """
+        with self.lock:
+            return dict(self.con.execute(sql).fetchall())
 
     def fetched_mal_ids_sql(self) -> str:
         """IDs com detalhe do MAL extraído com sucesso (base para o enriquecimento via Jikan)."""

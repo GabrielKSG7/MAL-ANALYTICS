@@ -67,6 +67,12 @@ erDiagram
     dim_anime ||--o{ fct_anime_metrics_snapshot : "série temporal"
     dim_anime ||--o{ fct_user_rating : avaliado_em
     dim_anime ||--o{ fct_my_list : na_sua_lista
+    dim_anime ||--o{ bridge_anime_staff : creditos
+    dim_person ||--o{ bridge_anime_staff : trabalhou_em
+    dim_anime ||--o{ fct_episode : episodios
+    dim_manga ||--o{ bridge_manga_anime : adaptado_em
+    dim_anime ||--o{ bridge_manga_anime : adapta
+    dim_manga ||--o{ bridge_manga_author : escrito_por
 
     dim_anime {
         int mal_id PK
@@ -83,6 +89,25 @@ erDiagram
         date snapshot_date
         double mean_score
         bigint num_list_users
+    }
+    bridge_anime_staff {
+        int mal_id FK
+        int person_id FK
+        varchar role
+        varchar role_group
+    }
+    fct_episode {
+        int mal_id FK
+        int episode_number
+        date aired_on
+        int length_min
+    }
+    dim_manga {
+        int manga_id PK
+        varchar title
+        double mean_score
+        bool has_anime_adaptation
+        int years_until_adaptation
     }
     fct_user_rating {
         varchar user_key

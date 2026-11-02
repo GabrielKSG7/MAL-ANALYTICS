@@ -4,6 +4,98 @@
 
 ## staging
 
+### `staging.stg_anilist__characters` · view
+
+| coluna | tipo | descrição |
+|---|---|---|
+| `mal_id` | INTEGER |  |
+| `character_id` | INTEGER |  |
+| `character_name` | VARCHAR |  |
+| `character_name_native` | VARCHAR |  |
+| `gender` | VARCHAR |  |
+| `age` | VARCHAR |  |
+| `favourites` | INTEGER |  |
+| `image_url` | VARCHAR |  |
+| `profile_url` | VARCHAR |  |
+| `character_role` | VARCHAR |  |
+
+### `staging.stg_anilist__media` · view
+
+| coluna | tipo | descrição |
+|---|---|---|
+| `mal_id` | INTEGER |  |
+| `anilist_id` | INTEGER |  |
+| `title_romaji` | VARCHAR |  |
+| `title_english` | VARCHAR |  |
+| `title_native` | VARCHAR |  |
+| `anilist_favourites` | INTEGER |  |
+| `anilist_average_score` | INTEGER |  |
+| `anilist_popularity` | INTEGER |  |
+| `country_of_origin` | VARCHAR |  |
+| `cast_truncated` | BOOLEAN |  |
+| `extracted_at` | TIMESTAMP |  |
+| `_payload` | JSON |  |
+
+### `staging.stg_anilist__people` · view
+
+| coluna | tipo | descrição |
+|---|---|---|
+| `person_id` | INTEGER |  |
+| `person_name` | VARCHAR |  |
+| `person_name_native` | VARCHAR |  |
+| `language` | VARCHAR |  |
+| `gender` | VARCHAR |  |
+| `favourites` | INTEGER |  |
+| `occupations` | VARCHAR[] |  |
+| `home_town` | VARCHAR |  |
+| `birth_date` | DATE |  |
+| `death_date` | DATE |  |
+| `active_since` | INTEGER |  |
+| `image_url` | VARCHAR |  |
+| `profile_url` | VARCHAR |  |
+
+### `staging.stg_anilist__staff_roles` · view
+
+| coluna | tipo | descrição |
+|---|---|---|
+| `mal_id` | INTEGER |  |
+| `person_id` | INTEGER |  |
+| `role` | VARCHAR |  |
+| `role_base` | VARCHAR |  |
+| `role_group` | VARCHAR |  |
+
+### `staging.stg_anilist__studios` · view
+
+| coluna | tipo | descrição |
+|---|---|---|
+| `mal_id` | INTEGER |  |
+| `anilist_studio_id` | INTEGER |  |
+| `studio_name` | VARCHAR |  |
+| `is_animation_studio` | BOOLEAN |  |
+| `is_main` | BOOLEAN |  |
+| `favourites` | INTEGER |  |
+
+### `staging.stg_anilist__tags` · view
+
+| coluna | tipo | descrição |
+|---|---|---|
+| `mal_id` | INTEGER |  |
+| `tag` | VARCHAR |  |
+| `category` | VARCHAR |  |
+| `relevance` | INTEGER |  |
+| `is_spoiler` | BOOLEAN |  |
+
+### `staging.stg_anilist__voice_actors` · view
+
+| coluna | tipo | descrição |
+|---|---|---|
+| `mal_id` | INTEGER |  |
+| `character_id` | INTEGER |  |
+| `person_id` | INTEGER |  |
+| `voice_language` | VARCHAR |  |
+| `role_notes` | VARCHAR |  |
+| `dub_group` | VARCHAR |  |
+
 ### `staging.stg_jikan__characters` · view
 
 Personagens e dubladores por anime (uma linha por anime × personagem × dublador).
@@ -63,6 +155,20 @@ Testes: `accepted_values(list_status)`, `not_null(user_key)`, `value_between(use
 | `list_status` | VARCHAR |  |
 | `episodes_watched` | INTEGER |  |
 | `source_file` | VARCHAR |  |
+
+### `staging.stg_kitsu__episodes` · view
+
+| coluna | tipo | descrição |
+|---|---|---|
+| `mal_id` | INTEGER |  |
+| `kitsu_id` | INTEGER |  |
+| `episode_number` | INTEGER |  |
+| `season_number` | INTEGER |  |
+| `relative_number` | INTEGER |  |
+| `episode_title` | VARCHAR |  |
+| `aired_on` | DATE |  |
+| `length_min` | INTEGER |  |
+| `synopsis` | VARCHAR |  |
 
 ### `staging.stg_mal__anime` · view
 
@@ -195,6 +301,64 @@ Testes: `unique_combination`
 | `studio_name` | VARCHAR |  |
 | `is_main_studio` | BOOLEAN |  |
 
+### `staging.stg_mal__manga` · view
+
+| coluna | tipo | descrição |
+|---|---|---|
+| `manga_id` | INTEGER |  |
+| `title` | VARCHAR |  |
+| `title_english` | VARCHAR |  |
+| `title_japanese` | VARCHAR |  |
+| `picture_url` | VARCHAR |  |
+| `synopsis` | VARCHAR |  |
+| `media_type` | VARCHAR |  |
+| `publishing_status` | VARCHAR |  |
+| `start_date` | DATE |  |
+| `end_date` | DATE |  |
+| `num_volumes` | INTEGER |  |
+| `num_chapters` | INTEGER |  |
+| `mean_score` | DOUBLE |  |
+| `score_rank` | INTEGER |  |
+| `popularity_rank` | INTEGER |  |
+| `num_list_users` | BIGINT |  |
+| `num_scoring_users` | BIGINT |  |
+| `nsfw_level` | VARCHAR |  |
+| `extracted_at` | TIMESTAMP |  |
+| `_payload` | JSON |  |
+
+### `staging.stg_mal__manga_anime_links` · view
+
+| coluna | tipo | descrição |
+|---|---|---|
+| `manga_id` | INTEGER |  |
+| `mal_id` | INTEGER |  |
+| `relation_type` | VARCHAR |  |
+
+### `staging.stg_mal__manga_authors` · view
+
+| coluna | tipo | descrição |
+|---|---|---|
+| `manga_id` | INTEGER |  |
+| `author_id` | INTEGER |  |
+| `author_name` | VARCHAR |  |
+| `author_role` | VARCHAR |  |
+
+### `staging.stg_mal__manga_genres` · view
+
+| coluna | tipo | descrição |
+|---|---|---|
+| `manga_id` | INTEGER |  |
+| `genre_id` | INTEGER |  |
+| `genre_name` | VARCHAR |  |
+
+### `staging.stg_mal__manga_serialization` · view
+
+| coluna | tipo | descrição |
+|---|---|---|
+| `manga_id` | INTEGER |  |
+| `magazine_id` | INTEGER |  |
+| `magazine_name` | VARCHAR |  |
+
 ### `staging.stg_mal__user_animelist` · view
 
 Lista pública do usuário configurado (MAL_USERNAME), extração mais recente.
@@ -324,16 +488,16 @@ Testes: `unique_combination`
 
 ### `core.bridge_anime_cast` · table
 
-Anime × personagem × dublador.
+Anime × personagem × dublador (AniList). person_id nulo = personagem sem dublador cadastrado.
 
-Testes: `relationships(mal_id)`
+Testes: `accepted_values(character_role)`, `relationships(character_id)`, `relationships(mal_id)`, `relationships(person_id)`
 
 | coluna | tipo | descrição |
 |---|---|---|
 | `mal_id` | INTEGER |  |
 | `character_id` | INTEGER |  |
-| `person_id` | INTEGER |  |
 | `character_role` | VARCHAR |  |
+| `person_id` | INTEGER |  |
 | `voice_language` | VARCHAR |  |
 
 ### `core.bridge_anime_genre` · table
@@ -348,6 +512,20 @@ Testes: `relationships(genre_id)`, `relationships(mal_id)`, `unique_combination`
 | `genre_id` | INTEGER |  |
 | `allocation_weight` | DOUBLE |  |
 
+### `core.bridge_anime_staff` · table
+
+Créditos de staff (AniList) — anime × pessoa × papel, com `role_group` normalizado.
+
+Testes: `accepted_values(role_group)`, `relationships(person_id)`, `unique_combination`
+
+| coluna | tipo | descrição |
+|---|---|---|
+| `mal_id` | INTEGER |  |
+| `person_id` | INTEGER |  |
+| `role` | VARCHAR |  |
+| `role_base` | VARCHAR |  |
+| `role_group` | VARCHAR |  |
+
 ### `core.bridge_anime_studio` · table
 
 Anime × estúdio (N:N).
@@ -359,6 +537,29 @@ Testes: `relationships(studio_id)`
 | `mal_id` | INTEGER |  |
 | `studio_id` | INTEGER |  |
 | `is_main_studio` | BOOLEAN |  |
+
+### `core.bridge_manga_anime` · table
+
+Mangá × anime (adaptações e outras ligações declaradas no MAL).
+
+Testes: `unique_combination`
+
+| coluna | tipo | descrição |
+|---|---|---|
+| `manga_id` | INTEGER |  |
+| `mal_id` | INTEGER |  |
+| `relation_type` | VARCHAR |  |
+
+### `core.bridge_manga_author` · table
+
+Mangá × autor (com o papel — história, arte...).
+
+| coluna | tipo | descrição |
+|---|---|---|
+| `manga_id` | INTEGER |  |
+| `author_id` | INTEGER |  |
+| `author_name` | VARCHAR |  |
+| `author_role` | VARCHAR |  |
 
 ### `core.dim_anime` · table
 
@@ -424,17 +625,22 @@ Testes: `accepted_values(score_band)`, `not_null(franchise_id)`, `not_null(mal_i
 
 ### `core.dim_character` · table
 
-Personagens, com número de favoritos no MAL.
+Personagens (AniList), com favoritos e número de animes em que aparecem.
 
-Testes: `not_null(character_id)`, `unique(character_id)`
+Testes: `not_null(character_id)`, `relationships(character_id)`, `unique(character_id)`
 
 | coluna | tipo | descrição |
 |---|---|---|
 | `character_id` | INTEGER |  |
 | `character_name` | VARCHAR |  |
-| `favorites` | INTEGER |  |
+| `character_name_native` | VARCHAR |  |
+| `gender` | VARCHAR |  |
+| `age` | VARCHAR |  |
+| `favourites` | INTEGER |  |
 | `num_anime_appearances` | BIGINT |  |
 | `ever_main` | BOOLEAN |  |
+| `image_url` | VARCHAR |  |
+| `profile_url` | VARCHAR |  |
 
 ### `core.dim_genre` · table
 
@@ -448,20 +654,68 @@ Testes: `relationships(genre_id)`, `unique(genre_id)`
 | `genre_name` | VARCHAR |  |
 | `num_anime` | BIGINT |  |
 
+### `core.dim_manga` · table
+
+Mangás, light novels, manhwas etc. do MAL, com autores, revista e se viraram anime.
+
+Testes: `not_null(manga_id)`, `unique(manga_id)`, `value_between(mean_score)`
+
+| coluna | tipo | descrição |
+|---|---|---|
+| `manga_id` | INTEGER |  |
+| `title` | VARCHAR |  |
+| `title_english` | VARCHAR |  |
+| `mal_url` | VARCHAR |  |
+| `picture_url` | VARCHAR |  |
+| `media_type` | VARCHAR |  |
+| `publishing_status` | VARCHAR |  |
+| `start_date` | DATE |  |
+| `end_date` | DATE |  |
+| `start_year` | BIGINT |  |
+| `num_volumes` | INTEGER |  |
+| `num_chapters` | INTEGER |  |
+| `mean_score` | DOUBLE |  |
+| `score_rank` | INTEGER |  |
+| `popularity_rank` | INTEGER |  |
+| `num_list_users` | BIGINT |  |
+| `num_scoring_users` | BIGINT |  |
+| `genres` | VARCHAR[] |  |
+| `genres_label` | VARCHAR |  |
+| `authors_label` | VARCHAR |  |
+| `magazines_label` | VARCHAR |  |
+| `has_anime_adaptation` | BOOLEAN |  |
+| `num_anime_adaptations` | BIGINT |  |
+| `main_adaptation_title` | VARCHAR |  |
+| `main_adaptation_score` | DOUBLE |  |
+| `years_until_adaptation` | BIGINT |  |
+
 ### `core.dim_person` · table
 
-Dubladores (seiyuus) presentes nos elencos extraídos via Jikan.
+Pessoas do ecossistema (dubladores e staff) com ficha da AniList e tamanho da carreira nos dados.
 
-Testes: `not_null(person_id)`, `unique(person_id)`
+Testes: `not_null(person_id)`, `relationships(person_id)`, `unique(person_id)`
 
 | coluna | tipo | descrição |
 |---|---|---|
 | `person_id` | INTEGER |  |
 | `person_name` | VARCHAR |  |
-| `num_anime` | BIGINT |  |
+| `person_name_native` | VARCHAR |  |
+| `language` | VARCHAR |  |
+| `gender` | VARCHAR |  |
+| `birth_date` | DATE |  |
+| `death_date` | DATE |  |
+| `home_town` | VARCHAR |  |
+| `active_since` | INTEGER |  |
+| `occupations` | VARCHAR[] |  |
+| `favourites` | INTEGER |  |
+| `num_anime_voiced` | BIGINT |  |
 | `num_characters` | BIGINT |  |
 | `num_main_roles` | BIGINT |  |
-| `languages` | VARCHAR[] |  |
+| `num_anime_staff` | BIGINT |  |
+| `num_anime_directed` | BIGINT |  |
+| `main_role_group` | VARCHAR |  |
+| `image_url` | VARCHAR |  |
+| `profile_url` | VARCHAR |  |
 
 ### `core.dim_studio` · table
 
@@ -499,6 +753,24 @@ Testes: `unique_combination`, `value_between(num_list_users)`
 | `status_dropped` | BIGINT |  |
 | `status_plan_to_watch` | BIGINT |  |
 | `extracted_at` | TIMESTAMP |  |
+
+### `core.fct_episode` · table
+
+Episódios (Kitsu) ligados ao anime do MAL — título, temporada, data de exibição e duração.
+
+Testes: `not_null(episode_number)`, `unique_combination`, `value_between(length_min)`
+
+| coluna | tipo | descrição |
+|---|---|---|
+| `mal_id` | INTEGER |  |
+| `episode_number` | INTEGER |  |
+| `season_number` | INTEGER |  |
+| `episode_title` | VARCHAR |  |
+| `aired_on` | DATE |  |
+| `aired_year` | BIGINT |  |
+| `length_min` | INTEGER |  |
+| `days_since_previous` | BIGINT |  |
+| `synopsis` | VARCHAR |  |
 
 ### `core.fct_my_list` · table
 
@@ -549,6 +821,27 @@ Testes: `not_null(user_key)`, `relationships(mal_id)`
 
 ## analytics
 
+### `analytics.mart_adaptation_scores` · table
+
+Nota da obra original × nota de cada adaptação em anime.
+
+Testes: `unique_combination`
+
+| coluna | tipo | descrição |
+|---|---|---|
+| `manga_id` | INTEGER |  |
+| `manga_title` | VARCHAR |  |
+| `source_type` | VARCHAR |  |
+| `manga_score` | DOUBLE |  |
+| `mal_id` | INTEGER |  |
+| `anime_title` | VARCHAR |  |
+| `anime_media_type` | VARCHAR |  |
+| `anime_score` | DOUBLE |  |
+| `anime_minus_manga` | DOUBLE |  |
+| `main_studio_name` | VARCHAR |  |
+| `season_year` | BIGINT |  |
+| `years_after_original` | BIGINT |  |
+
 ### `analytics.mart_anime_trending` · table
 
 Variação de nota, membros e rank entre as duas extrações mais recentes de cada anime.
@@ -570,6 +863,30 @@ Testes: `not_null(mal_id)`, `unique(mal_id)`
 | `members_growth_rate` | DOUBLE |  |
 | `rank_positions_gained` | INTEGER |  |
 
+### `analytics.mart_director_performance` · table
+
+Diretores (3+ obras com nota) — mediana, consistência, alcance e melhor obra.
+
+Testes: `not_null(person_id)`, `unique(person_id)`
+
+| coluna | tipo | descrição |
+|---|---|---|
+| `person_id` | INTEGER |  |
+| `person_name` | VARCHAR |  |
+| `person_name_native` | VARCHAR |  |
+| `num_titles` | BIGINT |  |
+| `median_score` | DOUBLE |  |
+| `avg_score` | DOUBLE |  |
+| `score_stddev` | DOUBLE |  |
+| `members_weighted_score` | DOUBLE |  |
+| `total_members` | HUGEINT |  |
+| `best_title` | VARCHAR |  |
+| `best_score` | DOUBLE |  |
+| `usual_studio` | VARCHAR |  |
+| `first_year` | BIGINT |  |
+| `last_year` | BIGINT |  |
+| `person_favourites` | INTEGER |  |
+
 ### `analytics.mart_drop_rate_by_genre` · table
 
 Taxa de abandono por gênero a partir do comportamento real dos usuários (Kaggle).
@@ -586,9 +903,24 @@ Testes: `not_null(genre_id)`, `unique(genre_id)`, `value_between(drop_rate)`
 | `avg_score_when_completed` | DOUBLE |  |
 | `avg_score_when_dropped` | DOUBLE |  |
 
+### `analytics.mart_episode_trends` · table
+
+Episódios exibidos por ano — volume, animes no ar e duração média.
+
+Testes: `not_null(aired_year)`, `unique(aired_year)`
+
+| coluna | tipo | descrição |
+|---|---|---|
+| `aired_year` | BIGINT |  |
+| `episodes_aired` | BIGINT |  |
+| `anime_airing` | BIGINT |  |
+| `avg_length_min` | DOUBLE |  |
+| `total_hours` | DOUBLE |  |
+| `share_web_episodes` | DOUBLE |  |
+
 ### `analytics.mart_franchise_summary` · table
 
-Resumo por franquia (2+ entradas) com evolução da nota ao longo das temporadas.
+Resumo por franquia (2+ entradas). Nome = entrada mais popular; evolução da nota compara a primeira e a última temporada de TV (nula se a franquia tem menos de 2 entradas de TV com nota).
 
 Testes: `not_null(franchise_id)`, `unique(franchise_id)`, `value_between(num_entries)`
 
@@ -605,7 +937,9 @@ Testes: `not_null(franchise_id)`, `unique(franchise_id)`, `value_between(num_ent
 | `avg_score` | DOUBLE |  |
 | `best_score` | DOUBLE |  |
 | `best_entry` | VARCHAR |  |
+| `first_tv_entry` | VARCHAR |  |
 | `first_entry_score` | DOUBLE |  |
+| `latest_tv_entry` | VARCHAR |  |
 | `latest_entry_score` | DOUBLE |  |
 | `score_change_first_to_latest` | DOUBLE |  |
 | `peak_members` | BIGINT |  |
@@ -630,7 +964,7 @@ Testes: `unique_combination`, `value_between(share_of_year)`
 
 ### `analytics.mart_hidden_gems` · table
 
-Alta nota bayesiana e baixa popularidade — boas descobertas.
+Nota no topo (entre títulos com votos suficientes) e poucos membros — boas descobertas.
 
 Testes: `not_null(mal_id)`, `unique(mal_id)`
 
@@ -644,10 +978,35 @@ Testes: `not_null(mal_id)`, `unique(mal_id)`
 | `genres_label` | VARCHAR |  |
 | `mean_score` | DOUBLE |  |
 | `weighted_score` | DOUBLE |  |
+| `num_scoring_users` | BIGINT |  |
 | `num_list_users` | BIGINT |  |
 | `members_percentile` | DOUBLE |  |
 | `quality_percentile` | DOUBLE |  |
 | `gem_score` | DOUBLE |  |
+| `mal_url` | VARCHAR |  |
+
+### `analytics.mart_manga_adaptation_gap` · table
+
+Obras originais populares e bem avaliadas que ainda não viraram anime.
+
+Testes: `not_null(manga_id)`, `unique(manga_id)`
+
+| coluna | tipo | descrição |
+|---|---|---|
+| `manga_id` | INTEGER |  |
+| `title` | VARCHAR |  |
+| `media_type` | VARCHAR |  |
+| `publishing_status` | VARCHAR |  |
+| `start_year` | BIGINT |  |
+| `authors_label` | VARCHAR |  |
+| `magazines_label` | VARCHAR |  |
+| `genres_label` | VARCHAR |  |
+| `mean_score` | DOUBLE |  |
+| `num_list_users` | BIGINT |  |
+| `num_scoring_users` | BIGINT |  |
+| `num_volumes` | INTEGER |  |
+| `num_chapters` | INTEGER |  |
+| `popularity_rank_unadapted` | BIGINT |  |
 | `mal_url` | VARCHAR |  |
 
 ### `analytics.mart_my_profile_vs_mal` · table
@@ -777,6 +1136,32 @@ Testes: `not_null(studio_id)`, `unique(studio_id)`, `value_between(num_titles)`
 | `quality_rank` | BIGINT |  |
 | `consistency_rank` | BIGINT |  |
 | `reach_rank` | BIGINT |  |
+
+### `analytics.mart_voice_actor_ranking` · table
+
+Dubladores por volume, protagonismo, nota média dos animes e papel mais famoso.
+
+Testes: `not_null(person_id)`, `unique(person_id)`
+
+| coluna | tipo | descrição |
+|---|---|---|
+| `person_id` | INTEGER |  |
+| `person_name` | VARCHAR |  |
+| `person_name_native` | VARCHAR |  |
+| `voice_language` | VARCHAR |  |
+| `gender` | VARCHAR |  |
+| `birth_date` | DATE |  |
+| `person_favourites` | INTEGER |  |
+| `num_anime` | BIGINT |  |
+| `num_characters` | BIGINT |  |
+| `num_main_roles` | BIGINT |  |
+| `avg_anime_score` | DOUBLE |  |
+| `total_members_reached` | HUGEINT |  |
+| `most_famous_character` | VARCHAR |  |
+| `most_famous_character_anime` | VARCHAR |  |
+| `first_year` | BIGINT |  |
+| `last_year` | BIGINT |  |
+| `rank_by_volume` | BIGINT |  |
 
 ## snapshots
 

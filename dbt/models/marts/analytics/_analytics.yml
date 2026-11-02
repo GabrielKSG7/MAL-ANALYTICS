@@ -84,6 +84,35 @@ models:
     data_tests:
       - unique_combination: {arguments: {columns: [person_a, person_b]}}
 
+  - name: mart_voice_actor_ranking
+    description: Dubladores por volume, protagonismo, nota média dos animes e papel mais famoso.
+    columns:
+      - name: person_id
+        data_tests: [unique, not_null]
+
+  - name: mart_director_performance
+    description: Diretores (3+ obras com nota) — mediana, consistência, alcance e melhor obra.
+    columns:
+      - name: person_id
+        data_tests: [unique, not_null]
+
+  - name: mart_episode_trends
+    description: Episódios exibidos por ano — volume, animes no ar e duração média.
+    columns:
+      - name: aired_year
+        data_tests: [unique, not_null]
+
+  - name: mart_manga_adaptation_gap
+    description: Obras originais populares e bem avaliadas que ainda não viraram anime.
+    columns:
+      - name: manga_id
+        data_tests: [unique, not_null]
+
+  - name: mart_adaptation_scores
+    description: Nota da obra original × nota de cada adaptação em anime.
+    data_tests:
+      - unique_combination: {arguments: {columns: [manga_id, mal_id]}}
+
 exposures:
   - name: streamlit_dashboard
     label: Dashboard MAL Analytics (Streamlit)

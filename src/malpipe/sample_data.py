@@ -275,7 +275,11 @@ def generate(wh: Warehouse, run: RunContext, n_anime: int = 400, n_users: int = 
     manami_rows = []
     for a in catalog:
         entry = {
-            "sources": [f"https://myanimelist.net/anime/{a.mal_id}", f"https://anilist.co/anime/{a.mal_id + 7}"],
+            "sources": [
+                f"https://myanimelist.net/anime/{a.mal_id}",
+                f"https://anilist.co/anime/{a.mal_id + 7}",
+                f"https://kitsu.app/anime/{a.mal_id + 3}",
+            ],
             "title": a.title,
             "type": a.media_type.upper() if a.media_type != "ona" else "ONA",
             "episodes": a.episodes,
@@ -380,6 +384,140 @@ def generate(wh: Warehouse, run: RunContext, n_anime: int = 400, n_users: int = 
         "bronze.mal_user_animelist", ("username", "payload", "extracted_at", "run_id"), my_rows
     )
 
+    counts.update(generate_ecosystem(wh, run, catalog, now, rng))
     run.add(sum(counts.values()))
     run.notes = f"sample seed={seed} n_anime={n_anime} n_users={n_users}"
+    return counts
+
+
+# ============================================================================ ecossistema
+STAFF_ROLES = ["Director", "Series Composition", "Original Creator", "Character Design", "Music",
+               "Episode Director (ep 3)", "Storyboard (eps 1, 5)", "Animation Director"]  # fmt: skip
+OCCUPATIONS = {"Director": "Director", "Series Composition": "Screenwriter", "Original Creator": "Mangaka",
+               "Character Design": "Animator", "Music": "Composer"}  # fmt: skip
+MANGA_TYPES = ["manga", "manga", "manga", "light_novel", "manhwa", "one_shot", "novel"]
+MAGAZINES = ["Weekly Shounen Saikyou", "Young Kumo", "Monthly Hoshi", "Comic Sakura", "Light Novel Bunko"]
+
+
+def _person(rng, pid: int, name: str, lang: str, occupation: str) -> dict:
+    year = int(rng.integers(1955, 2000))
+    return {
+        "id": pid, "name": {"full": name, "native": None}, "languageV2": lang,
+        "gender": str(rng.choice(["Male", "Female"])), "favourites": int(rng.integers(0, 40000)),
+        "primaryOccupations": [occupation], "homeTown": str(rng.choice(["Tokyo", "Osaka", "Kanagawa", None])),
+        "yearsActive": [year + 22], "dateOfBirth": {"year": year, "month": int(rng.integers(1, 13)), "day": 1},
+        "dateOfDeath": {"year": None, "month": None, "day": None}, "image": {"medium": None}, "siteUrl": None,
+    }  # fmt: skip
+
+
+def generate_ecosystem(wh: Warehouse, run: RunContext, catalog: list[Anime], now: datetime, rng) -> dict:
+    """AniList (elenco/staff/estúdios), Kitsu (episódios) e MAL mangá — formato real de cada API."""
+    counts: dict[str, int] = {}
+    seiyuus = [_person(rng, 95000 + i, f"{_word(rng)} {_word(rng)}", "Japanese", "Voice Actor") for i in range(90)]
+    dubbers = [_person(rng, 96000 + i, f"{_word(rng)} {_word(rng)}", "English", "Voice Actor") for i in range(30)]
+    staff_pool = {
+        role: [_person(rng, 97000 + 100 * k + i, f"{_word(rng)} {_word(rng)}", "Japanese", occ) for i in range(25)]
+        for k, (role, occ) in enumerate(OCCUPATIONS.items())
+    }
+    animators = [_person(rng, 98000 + i, f"{_word(rng)} {_word(rng)}", "Japanese", "Animator") for i in range(60)]
+    char_id = 800000
+
+    rows_anilist, rows_kitsu = [], []
+    for a in catalog:
+        if rng.random() < 0.04:  # alguns animes não existem na AniList
+            rows_anilist.append((a.mal_id, 404, None, '{"errors":[{"message":"Not Found."}]}', now, run.run_id))
+            continue
+        characters = []
+        for role in ["MAIN", "MAIN", "SUPPORTING", "SUPPORTING", "SUPPORTING", "BACKGROUND"]:
+            char_id += 1
+            jp = seiyuus[int(rng.integers(len(seiyuus)))]
+            vas = [{"roleNotes": None, "dubGroup": None, "voiceActor": jp}]
+            if rng.random() < 0.4:
+                dub = dubbers[int(rng.integers(len(dubbers)))]
+                vas.append({"roleNotes": None, "dubGroup": None, "voiceActor": dub})
+            characters.append({
+                "role": role,
+                "node": {"id": char_id, "name": {"full": f"{_word(rng)} {_word(rng)}", "native": None},
+                         "gender": str(rng.choice(["Male", "Female"])), "age": str(int(rng.integers(10, 40))),
+                         "favourites": int(rng.integers(0, 20000)),
+                         "dateOfBirth": {"year": None, "month": int(rng.integers(1, 13)), "day": 1},
+                         "image": {"medium": None}, "siteUrl": None},
+                "voiceActorRoles": vas,
+            })  # fmt: skip
+        staff = [{"role": role, "node": pool[int(rng.integers(len(pool)))]} for role, pool in staff_pool.items()]
+        staff += [{"role": str(rng.choice(STAFF_ROLES[5:])), "node": animators[int(rng.integers(len(animators)))]}
+                  for _ in range(4)]  # fmt: skip
+        media = {
+            "id": a.mal_id + 7, "idMal": a.mal_id,
+            "title": {"romaji": a.title, "english": a.title.upper(), "native": None},
+            "favourites": int(rng.integers(0, 50000)), "averageScore": int(60 + 10 * a.quality),
+            "popularity": int(1000 + 100000 * a.popularity_w), "countryOfOrigin": "JP",
+            "tags": [{"name": t.title(), "rank": int(rng.integers(50, 100)), "category": "Theme",
+                      "isMediaSpoiler": False} for t in a.tags],
+            "studios": {"edges": [{"isMain": True, "node": {"id": a.studio[0] - 8000, "name": a.studio[1],
+                                    "isAnimationStudio": True, "favourites": 1000, "siteUrl": None}}]},
+            "characters": characters, "staff": staff, "truncated": False,
+        }  # fmt: skip
+        rows_anilist.append((a.mal_id, 200, to_json(media), None, now, run.run_id))
+
+        if a.media_type in ("tv", "ona", "ova", "special"):
+            start = datetime(a.year, SEASON_MONTH[a.season], 5)
+            eps = [{
+                "kitsu_episode_id": str(a.mal_id * 1000 + n), "number": n, "seasonNumber": 1, "relativeNumber": n,
+                "canonicalTitle": f"Episódio {n}: {_word(rng)}", "titles": {"en_jp": f"Episode {n}"},
+                "airdate": (start + timedelta(weeks=n - 1)).date().isoformat() if rng.random() > 0.05 else None,
+                "length": 24 if a.media_type != "special" else 12, "synopsis": None,
+            } for n in range(1, a.episodes + 1)]  # fmt: skip
+            rows_kitsu.append((a.mal_id, a.mal_id + 3, 200, to_json(eps), None, now, run.run_id))
+
+    counts["anilist_media"] = wh.insert_rows(
+        "bronze.anilist_media", ("mal_id", "http_status", "payload", "error", "extracted_at", "run_id"), rows_anilist
+    )
+    counts["kitsu_episodes"] = wh.insert_rows(
+        "bronze.kitsu_episodes",
+        ("mal_id", "kitsu_id", "http_status", "payload", "error", "extracted_at", "run_id"),
+        rows_kitsu,
+    )
+
+    # ---- mangás: metade das franquias tem obra original em mangá/LN ligada ao anime
+    disc, details = [], []
+    manga_id = 2000
+    authors = [(30000 + i, _word(rng), _word(rng)) for i in range(70)]
+    first_of_franchise = {}
+    for a in catalog:
+        first_of_franchise.setdefault(a.franchise, a)
+    adapted = list(first_of_franchise.values())
+    for i in range(int(len(adapted) * 1.6)):
+        manga_id += int(rng.integers(1, 30))
+        source = adapted[i] if i < len(adapted) and adapted[i].source in ("manga", "light_novel", "web_manga") else None
+        mtype = "light_novel" if source and source.source == "light_novel" else str(rng.choice(MANGA_TYPES))
+        year = (source.year - int(rng.integers(1, 6))) if source else int(rng.integers(1985, 2025))
+        q = (source.quality + rng.normal(0.2, 0.4)) if source else rng.normal(-0.2, 1)
+        author = authors[int(rng.integers(len(authors)))]
+        payload = {
+            "id": manga_id, "title": source.title.split(" 2nd")[0] if source else _title(rng),
+            "main_picture": {"medium": f"https://example.invalid/m{manga_id}.jpg"},
+            "alternative_titles": {"synonyms": [], "en": "", "ja": ""},
+            "start_date": f"{year}-0{int(rng.integers(1, 9))}-01", "end_date": None,
+            "synopsis": "[sintético]", "mean": round(float(np.clip(7.2 + 0.7 * q, 4.5, 9.4)), 2),
+            "rank": None, "popularity": None, "num_list_users": int(500 + 300000 * abs(rng.normal(0, 1))),
+            "num_scoring_users": int(200 + 100000 * abs(rng.normal(0, 1))), "nsfw": "white",
+            "genres": [{"id": g, "name": dict(GENRES)[g]} for g in (source.genres if source else [1, 8])],
+            "media_type": mtype, "status": str(rng.choice(["finished", "currently_publishing", "on_hiatus"])),
+            "num_volumes": int(rng.integers(1, 40)), "num_chapters": int(rng.integers(5, 400)),
+            "authors": [{"node": {"id": author[0], "first_name": author[1], "last_name": author[2]},
+                         "role": "Story & Art"}],
+            "serialization": [{"node": {"id": 500 + i % 5, "name": MAGAZINES[i % 5]}}],
+            "related_anime": ([{"node": {"id": source.mal_id, "title": source.title}, "relation_type": "adaptation"}]
+                              if source else []),
+            "related_manga": [],
+        }  # fmt: skip
+        disc.append((manga_id, "ranking:all", now, run.run_id))
+        details.append((manga_id, 200, to_json(payload), None, now, run.run_id))
+    counts["mal_manga_discovery"] = wh.insert_rows(
+        "bronze.mal_manga_discovery", ("mal_id", "discovered_via", "extracted_at", "run_id"), disc
+    )
+    counts["mal_manga"] = wh.insert_rows(
+        "bronze.mal_manga", ("mal_id", "http_status", "payload", "error", "extracted_at", "run_id"), details
+    )
     return counts

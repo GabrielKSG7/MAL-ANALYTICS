@@ -64,13 +64,13 @@ models:
         data_type: integer
 
   - name: dim_person
-    description: Dubladores (seiyuus) presentes nos elencos extraídos via Jikan.
+    description: Pessoas do ecossistema (dubladores e staff) com ficha da AniList e tamanho da carreira nos dados.
     columns:
       - name: person_id
         data_tests: [unique, not_null]
 
   - name: dim_character
-    description: Personagens, com número de favoritos no MAL.
+    description: Personagens (AniList), com favoritos e número de animes em que aparecem.
     columns:
       - name: character_id
         data_tests: [unique, not_null]
@@ -95,11 +95,63 @@ models:
           - relationships: {arguments: {to: ref('dim_studio'), field: studio_id}}
 
   - name: bridge_anime_cast
-    description: Anime × personagem × dublador.
+    description: Anime × personagem × dublador (AniList). person_id nulo = personagem sem dublador cadastrado.
     columns:
       - name: mal_id
         data_tests:
           - relationships: {arguments: {to: ref('dim_anime'), field: mal_id}}
+      - name: character_id
+        data_tests:
+          - relationships: {arguments: {to: ref('dim_character'), field: character_id}}
+      - name: person_id
+        data_tests:
+          - relationships: {arguments: {to: ref('dim_person'), field: person_id}}
+      - name: character_role
+        data_tests:
+          - accepted_values: {arguments: {values: [Main, Supporting, Background]}}
+
+  - name: bridge_anime_staff
+    description: Créditos de staff (AniList) — anime × pessoa × papel, com `role_group` normalizado.
+    data_tests:
+      - unique_combination: {arguments: {columns: [mal_id, person_id, role]}}
+    columns:
+      - name: person_id
+        data_tests:
+          - relationships: {arguments: {to: ref('dim_person'), field: person_id}}
+      - name: role_group
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [Criação original, Direção, Direção assistente, Direção de episódio, Roteiro, Storyboard,
+                         Character design, Música, Direção de som, Direção de arte, Animação, Produção, Outros]
+
+  - name: fct_episode
+    description: Episódios (Kitsu) ligados ao anime do MAL — título, temporada, data de exibição e duração.
+    data_tests:
+      - unique_combination: {arguments: {columns: [mal_id, episode_number]}}
+    columns:
+      - name: episode_number
+        data_tests: [not_null]
+      - name: length_min
+        data_tests:
+          - value_between: {arguments: {min_value: 0, max_value: 600}, config: {severity: warn}}
+
+  - name: dim_manga
+    description: Mangás, light novels, manhwas etc. do MAL, com autores, revista e se viraram anime.
+    columns:
+      - name: manga_id
+        data_tests: [unique, not_null]
+      - name: mean_score
+        data_tests:
+          - value_between: {arguments: {min_value: 1, max_value: 10}}
+
+  - name: bridge_manga_anime
+    description: Mangá × anime (adaptações e outras ligações declaradas no MAL).
+    data_tests:
+      - unique_combination: {arguments: {columns: [manga_id, mal_id, relation_type]}}
+
+  - name: bridge_manga_author
+    description: Mangá × autor (com o papel — história, arte...).
 
   - name: fct_anime_metrics_snapshot
     description: >

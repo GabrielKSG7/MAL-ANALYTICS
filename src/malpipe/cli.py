@@ -13,8 +13,10 @@ from rich.logging import RichHandler
 from rich.table import Table
 
 from malpipe.config import get_settings
-from malpipe.sources import jikan, kaggle, mal_api, manami
+from malpipe.sources import anilist, jikan, kaggle, kitsu, mal_api, manami
 from malpipe.warehouse import JIKAN_ENTITIES, Warehouse
+
+log = logging.getLogger("malpipe")
 
 app = typer.Typer(help="Pipeline de dados do MyAnimeList → DuckDB (bronze).", no_args_is_help=True)
 console = Console()
@@ -148,6 +150,149 @@ def my_list(username: Annotated[str | None, typer.Option(help="Default: MAL_USER
     with wh.run("my-list") as run, mal_api.build_client(settings) as client:
         n = mal_api.fetch_user_list(client, wh, run, username)
         console.print(f"[green]{n}[/] itens na lista de {username}")
+    wh.close()
+
+
+# ============================================================================ ecossistema
+def _run_manga(settings, wh: Warehouse, limit: int | None, rediscover: bool) -> str:
+    with mal_api.build_client(settings) as client:
+        with wh.lock:
+            has_ids = wh.con.execute("SELECT count(*) FROM bronze.mal_manga_discovery").fetchone()[0]
+        if rediscover or not has_ids:
+            with wh.run("manga-discover") as run:
+                for ranking_type in ("all", "bypopularity"):
+                    mal_api.discover_ranking(client, wh, run, ranking_type=ranking_type, kind="manga")
+        ids = wh.pending_ids("bronze.mal_manga", settings.refresh_days * 4, wh.known_manga_ids_sql(), limit=limit)
+        log.info("mangá: %s pendentes (~%.1f h)", len(ids), len(ids) / settings.mal_rps / 3600)
+        if not ids:
+            return "nada pendente"
+        with wh.run("manga-details") as run:
+            stats = mal_api.fetch_details(client, wh, run, ids, kind="manga")
+            run.notes = f"status: {stats}"
+        return f"{len(ids):,} mangás · {stats}"
+
+
+def _run_anilist(settings, wh: Warehouse, limit: int | None) -> str:
+    ids = wh.pending_ids("bronze.anilist_media", settings.refresh_days * 4, wh.fetched_mal_ids_sql(), limit=limit)
+    log.info("anilist: %s animes pendentes (~%.1f h)", len(ids), len(ids) / settings.anilist_rps / 3600)
+    if not ids:
+        return "nada pendente"
+    with wh.run("anilist") as run, anilist.build_client(settings) as client:
+        stats = anilist.fetch_all(client, wh, run, ids, max_pages=settings.anilist_max_pages)
+        run.notes = f"status: {stats}"
+    return f"{len(ids):,} animes · {stats}"
+
+
+def _run_kitsu(settings, wh: Warehouse, limit: int | None) -> str:
+    targets = wh.kitsu_candidates()
+    done = wh.done_ids("bronze.kitsu_episodes", settings.refresh_days * 4)
+    todo = {m: k for m, k in sorted(targets.items()) if m not in done}
+    if limit:
+        todo = dict(list(todo.items())[:limit])
+    log.info("kitsu: %s animes pendentes (~%.1f h)", len(todo), len(todo) * 1.5 / settings.kitsu_rps / 3600)
+    if not todo:
+        return "nada pendente"
+    with wh.run("kitsu-episodes") as run, kitsu.build_client(settings) as client:
+        stats = kitsu.fetch_all(client, wh, run, todo)
+        run.notes = f"status: {stats}"
+    return f"{len(todo):,} animes · {stats}"
+
+
+@app.command("manga")
+def manga_cmd(
+    limit: Annotated[int | None, typer.Option(help="Máximo de mangás nesta execução.")] = None,
+    rediscover: Annotated[bool, typer.Option(help="Varrer o ranking de novo atrás de títulos novos.")] = False,
+) -> None:
+    """Catálogo de mangás pela MAL API oficial (descoberta pelo ranking + detalhe de cada um)."""
+    wh = _wh()
+    console.print(_run_manga(get_settings(), wh, limit, rediscover))
+    wh.close()
+
+
+@app.command("anilist")
+def anilist_cmd(limit: Annotated[int | None, typer.Option()] = None) -> None:
+    """Personagens, dubladores, staff, estúdios e pessoas pela AniList (por ID do MAL)."""
+    wh = _wh()
+    console.print(_run_anilist(get_settings(), wh, limit))
+    wh.close()
+
+
+@app.command("kitsu")
+def kitsu_cmd(limit: Annotated[int | None, typer.Option()] = None) -> None:
+    """Episódios (título, número, data, duração) pelo Kitsu."""
+    wh = _wh()
+    console.print(_run_kitsu(get_settings(), wh, limit))
+    wh.close()
+
+
+@app.command("check-sources")
+def check_sources() -> None:
+    """Testa se cada fonte responde a partir da sua rede (1 requisição em cada)."""
+    import time
+
+    import httpx
+
+    settings = get_settings()
+    checks = [
+        ("MAL API (anime)", "GET", f"{settings.mal_base_url}/anime/1?fields=id",
+         {"X-MAL-CLIENT-ID": settings.mal_client_id or ""}, None),
+        ("MAL API (mangá)", "GET", f"{settings.mal_base_url}/manga/2?fields=id",
+         {"X-MAL-CLIENT-ID": settings.mal_client_id or ""}, None),
+        ("AniList", "POST", settings.anilist_url, {"Content-Type": "application/json"},
+         {"query": "{ Media(idMal: 1, type: ANIME) { id idMal } }"}),
+        ("Kitsu", "GET", f"{settings.kitsu_base_url}/anime/1/episodes?page[limit]=1", {}, None),
+        ("Jikan", "GET", f"{settings.jikan_base_url}/anime/1", {}, None),
+        ("manami (GitHub)", "HEAD", settings.manami_url, {}, None),
+    ]  # fmt: skip
+    t = Table("fonte", "resultado", "tempo")
+    for name, method, url, headers, body in checks:
+        started = time.monotonic()
+        try:
+            r = httpx.request(method, url, headers=headers | {"User-Agent": settings.user_agent}, json=body,
+                              timeout=10, follow_redirects=True)  # fmt: skip
+            ok = r.status_code < 400
+            res = f"[{'green' if ok else 'red'}]HTTP {r.status_code}[/]"
+        except httpx.HTTPError as exc:
+            res = f"[red]{type(exc).__name__}[/]"
+        t.add_row(name, res, f"{time.monotonic() - started:.1f}s")
+    console.print(t)
+
+
+@app.command()
+def ecosystem(
+    only: Annotated[
+        list[str] | None, typer.Option(help="Rodar só estas fontes: manga, anilist, kitsu (repita a opção).")
+    ] = None,
+    limit: Annotated[int | None, typer.Option(help="Limite por fonte (teste rápido).")] = None,
+) -> None:
+    """Carga do ecossistema completo, com as fontes rodando EM PARALELO (hosts diferentes):
+
+    mangás (MAL API) · personagens/dubladores/staff/estúdios/pessoas (AniList) · episódios (Kitsu).
+    Cada fonte tem checkpoint próprio: se algo cair, rode de novo que continua de onde parou.
+    """
+    from concurrent.futures import ThreadPoolExecutor
+
+    settings = get_settings()
+    wh = _wh()
+    tasks = {
+        "manga": lambda: _run_manga(settings, wh, limit, rediscover=False),
+        "anilist": lambda: _run_anilist(settings, wh, limit),
+        "kitsu": lambda: _run_kitsu(settings, wh, limit),
+    }
+    chosen = {k: v for k, v in tasks.items() if not only or k in only}
+    console.print(f"Iniciando em paralelo: {', '.join(chosen)}. Pode deixar rodando; Ctrl+C interrompe com segurança.")
+    results: dict[str, str] = {}
+    with ThreadPoolExecutor(max_workers=len(chosen)) as pool:
+        futures = {name: pool.submit(fn) for name, fn in chosen.items()}
+        for name, fut in futures.items():
+            try:
+                results[name] = f"[green]ok[/] {fut.result()}"
+            except Exception as exc:  # uma fonte falhar não derruba as outras
+                results[name] = f"[red]falhou[/] {type(exc).__name__}: {str(exc)[:200]}"
+    t = Table("fonte", "resultado", title="Carga do ecossistema")
+    for name, res in results.items():
+        t.add_row(name, res)
+    console.print(t)
     wh.close()
 
 
@@ -361,6 +506,19 @@ def status() -> None:
     ).fetchone()
     console.print(f"Animes com detalhe do MAL: [bold]{ok:,}[/] · pendentes: [bold]{pending:,}[/]")
     console.print(f"Sua lista: [bold]{mine[0]:,}[/] animes, [bold]{mine[1]:,}[/] já com detalhe")
+
+    eco = Table("fonte", "concluídos", "pendentes", title="Ecossistema")
+    targets = [
+        ("mangá (MAL)", "bronze.mal_manga", wh.known_manga_ids_sql()),
+        ("AniList", "bronze.anilist_media", wh.known_mal_ids_sql()),
+    ]
+    for label, table, known in targets:
+        done = len(wh.done_ids(table, settings.refresh_days))
+        eco.add_row(label, f"{done:,}", f"{len(wh.pending_ids(table, settings.refresh_days, known)):,}")
+    kitsu_done = wh.done_ids("bronze.kitsu_episodes", settings.refresh_days * 4)
+    kitsu_todo = sum(1 for m in wh.kitsu_candidates() if m not in kitsu_done)
+    eco.add_row("Kitsu (episódios)", f"{len(kitsu_done):,}", f"{kitsu_todo:,}")
+    console.print(eco)
     wh.close()
 
 

@@ -3,7 +3,7 @@ SHELL := /bin/bash
 # O caminho do banco vem do .env (DUCKDB_PATH); `malpipe dbt` repassa o mesmo caminho para o dbt.
 DBT := malpipe dbt
 
-.PHONY: help install demo ingest build publish dbt-build dbt-docs recommend dashboard test lint status clean
+.PHONY: help install demo ingest ecosystem sources build publish dbt-build dbt-docs recommend dashboard test lint status clean
 
 help: ## Lista os comandos
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -19,6 +19,13 @@ demo: ## Ponta a ponta com dados SINTÉTICOS (sem credenciais): bronze → dbt �
 
 ingest: ## Ingestão incremental real (manami → temporadas → detalhes → Jikan → sua lista)
 	malpipe incremental
+
+ecosystem: ## Mangá (MAL) + elenco/staff (AniList) + episódios (Kitsu), em paralelo (~20 h, retomável)
+	malpipe check-sources
+	malpipe ecosystem
+
+sources: ## Testa a conexão com todas as fontes
+	malpipe check-sources
 
 build: dbt-build recommend publish ## dbt build + recomendador + cópia para o DBeaver
 

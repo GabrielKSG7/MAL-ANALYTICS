@@ -89,6 +89,7 @@ tabs = st.tabs(
         "🧬 Franquias",
         "💎 Descobrir",
         "🎯 Recomendações",
+        "🌐 Ecossistema",
         "🔎 Explorar",
         "🛠️ Pipeline",
     ]  # fmt: skip
@@ -686,8 +687,203 @@ with tabs[6]:
         fig.update_xaxes(tickformat=".0%")
         show(style(fig, 380, legend=False))
 
-# =============================================================================== 8. explorar
+# =============================================================================== 8. ecossistema
+ECO_HINT = "Rode `malpipe ecosystem` (mangá do MAL + AniList + Kitsu) e depois o build."
+
 with tabs[7]:
+    st.caption(
+        "Pessoas, personagens, episódios e mangás — AniList (elenco e staff), Kitsu (episódios) e MAL (mangá). "
+        "Não usa os filtros da barra lateral."
+    )
+    eco = q(
+        """SELECT (SELECT count(*) FROM core.dim_person) AS pessoas,
+                  (SELECT count(*) FROM core.dim_character) AS personagens,
+                  (SELECT count(DISTINCT mal_id) FROM core.bridge_anime_staff) AS animes_com_staff,
+                  (SELECT count(*) FROM core.fct_episode) AS episodios,
+                  (SELECT count(*) FROM core.dim_manga) AS mangas"""
+    )
+    if eco.empty or not (eco.pessoas[0] or eco.episodios[0] or eco.mangas[0]):
+        empty_state(ECO_HINT)
+    else:
+        e = eco.iloc[0]
+        kpi_row(
+            [
+                ("Pessoas", fmt_int(e.pessoas), None, "Dubladores e staff (AniList)."),
+                ("Personagens", fmt_int(e.personagens), None, None),
+                ("Animes com staff", fmt_int(e.animes_com_staff), None, "Créditos de direção, roteiro, música..."),
+                ("Episódios", fmt_compact(e.episodios), None, "Kitsu, só séries (TV/ONA/OVA/especiais)."),
+                ("Mangás e novels", fmt_int(e.mangas), None, "MAL manga."),
+            ]
+        )
+        sub = st.tabs(["🎙️ Dubladores", "🎬 Direção", "📺 Episódios", "📚 Mangá × anime"])
+
+        with sub[0]:
+            va = q("SELECT * FROM analytics.mart_voice_actor_ranking")
+            if va.empty:
+                empty_state(ECO_HINT)
+            else:
+                langs = sorted(va.voice_language.dropna().unique())
+                lang = st.selectbox(
+                    "Idioma da dublagem", langs, index=langs.index("Japanese") if "Japanese" in langs else 0
+                )
+                top = va[va.voice_language == lang].nlargest(15, "num_characters").iloc[::-1]
+                c1, c2 = st.columns(2)
+                fig = px.bar(top, x="num_characters", y="person_name", orientation="h", color_discrete_sequence=[BLUE],
+                             hover_data={"num_anime": True, "num_main_roles": True, "most_famous_character": True},
+                             title="Quem mais dublou personagens",
+                             labels={"num_characters": "personagens", "person_name": ""})  # fmt: skip
+                with c1:
+                    show(style(fig, 460, legend=False))
+                fig = px.scatter(va[va.voice_language == lang].query("num_anime >= 2"), x="num_anime", y="avg_anime_score",
+                                 size="total_members_reached", hover_name="person_name", color_discrete_sequence=[ORANGE],
+                                 opacity=0.6, title="Volume × nota média das obras (tamanho = público alcançado)",
+                                 labels={"num_anime": "animes", "avg_anime_score": "nota média"})  # fmt: skip
+                with c2:
+                    show(style(fig, 460, legend=False))
+                st.dataframe(
+                    va[va.voice_language == lang][["rank_by_volume", "person_name", "person_name_native", "num_anime",
+                                                   "num_characters", "num_main_roles", "avg_anime_score",
+                                                   "most_famous_character", "most_famous_character_anime",
+                                                   "first_year", "last_year"]].sort_values("rank_by_volume"),
+                    column_config={"rank_by_volume": "#", "person_name": "Nome", "person_name_native": "Nome nativo",
+                                   "num_anime": "Animes", "num_characters": "Personagens", "num_main_roles": "Protagonistas",
+                                   "avg_anime_score": st.column_config.NumberColumn("Nota média", format="%.2f"),
+                                   "most_famous_character": "Personagem mais favoritado",
+                                   "most_famous_character_anime": "Em",
+                                   "first_year": st.column_config.NumberColumn("Desde", format="%d"),
+                                   "last_year": st.column_config.NumberColumn("Até", format="%d")},
+                    hide_index=True, width="stretch", height=420,
+                )  # fmt: skip
+                pairs = q("SELECT person_a_name, person_b_name, shared_anime, shared_titles FROM analytics.mart_seiyuu_network "
+                          "ORDER BY shared_anime DESC LIMIT 15")  # fmt: skip
+                if not pairs.empty:
+                    st.subheader("Duplas que mais contracenaram")
+                    st.dataframe(pairs, hide_index=True, width="stretch",
+                                 column_config={"person_a_name": "Dublador A", "person_b_name": "Dublador B",
+                                                "shared_anime": "Animes juntos", "shared_titles": "Títulos"})  # fmt: skip
+
+        with sub[1]:
+            d = q("SELECT * FROM analytics.mart_director_performance")
+            if d.empty:
+                empty_state("Nenhum diretor com 3+ obras com nota ainda. " + ECO_HINT)
+            else:
+                fig = px.scatter(d, x="num_titles", y="median_score", size="total_members", hover_name="person_name",
+                                 hover_data={"best_title": True, "usual_studio": True}, color_discrete_sequence=[BLUE],
+                                 opacity=0.6, title="Diretores: quantidade de obras × nota mediana (tamanho = membros)",
+                                 labels={"num_titles": "obras dirigidas", "median_score": "nota mediana"})  # fmt: skip
+                show(style(fig, 440, legend=False))
+                st.dataframe(
+                    d.sort_values("members_weighted_score", ascending=False)[
+                        ["person_name", "num_titles", "median_score", "members_weighted_score", "score_stddev",
+                         "best_title", "best_score", "usual_studio", "first_year", "last_year"]],
+                    column_config={"person_name": "Diretor", "num_titles": "Obras",
+                                   "median_score": st.column_config.ProgressColumn("Mediana", min_value=1, max_value=10,
+                                                                                   format="%.2f"),
+                                   "members_weighted_score": st.column_config.NumberColumn("Nota pond.", format="%.2f"),
+                                   "score_stddev": st.column_config.NumberColumn("Desvio", format="%.2f",
+                                                                                 help="Baixo = consistente."),
+                                   "best_title": "Melhor obra", "best_score": st.column_config.NumberColumn("Nota", format="%.2f"),
+                                   "usual_studio": "Estúdio habitual",
+                                   "first_year": st.column_config.NumberColumn("Desde", format="%d"),
+                                   "last_year": st.column_config.NumberColumn("Até", format="%d")},
+                    hide_index=True, width="stretch", height=460,
+                )  # fmt: skip
+
+        with sub[2]:
+            ep = q("SELECT * FROM analytics.mart_episode_trends WHERE aired_year >= 1970 ORDER BY aired_year")
+            if ep.empty:
+                empty_state(ECO_HINT)
+            else:
+                c1, c2 = st.columns(2)
+                fig = px.bar(ep, x="aired_year", y="episodes_aired", color_discrete_sequence=[BLUE],
+                             title="Episódios exibidos por ano", labels={"aired_year": "", "episodes_aired": "episódios"})  # fmt: skip
+                with c1:
+                    show(style(fig, 380, legend=False))
+                fig = px.line(ep, x="aired_year", y="avg_length_min", markers=True, color_discrete_sequence=[ORANGE],
+                              title="Duração média do episódio (min)", labels={"aired_year": "", "avg_length_min": "minutos"})  # fmt: skip
+                with c2:
+                    show(style(fig, 380, legend=False))
+            pick = q(
+                """SELECT a.mal_id, a.title FROM core.dim_anime a
+                   WHERE a.mal_id IN (SELECT mal_id FROM core.fct_episode) ORDER BY a.num_list_users DESC LIMIT 400"""
+            )
+            if not pick.empty:
+                st.subheader("Guia de episódios")
+                title = st.selectbox("Anime", pick.title.tolist())
+                mid = int(pick.loc[pick.title == title, "mal_id"].iloc[0])
+                eps = q("SELECT episode_number, season_number, episode_title, aired_on, length_min, days_since_previous "
+                        "FROM core.fct_episode WHERE mal_id = ? ORDER BY episode_number", (mid,))  # fmt: skip
+                gaps = eps.days_since_previous.dropna()
+                st.caption(
+                    f"{fmt_int(len(eps))} episódios"
+                    + (f" · intervalo mediano de {gaps.median():.0f} dias" if len(gaps) else "")
+                )
+                st.dataframe(eps, hide_index=True, width="stretch", height=360,
+                             column_config={"episode_number": "Ep.", "season_number": "Temp.", "episode_title": "Título",
+                                            "aired_on": "Exibição", "length_min": "Min",
+                                            "days_since_previous": "Dias desde o anterior"})  # fmt: skip
+
+        with sub[3]:
+            m = q(
+                """SELECT count(*) AS n, avg(has_anime_adaptation::int) AS adapted,
+                          median(years_until_adaptation) AS gap_years
+                   FROM core.dim_manga WHERE media_type IN ('manga', 'light_novel', 'manhwa', 'novel', 'manhua', 'one_shot')"""
+            )
+            sc = q(
+                "SELECT * FROM analytics.mart_adaptation_scores WHERE manga_score IS NOT NULL AND anime_score IS NOT NULL"
+            )
+            if m.empty or not m.n[0]:
+                empty_state(ECO_HINT)
+            else:
+                kpi_row(
+                    [
+                        ("Obras originais", fmt_int(m.n[0]), None, "Mangá, light novel, manhwa…"),
+                        ("Viraram anime", fmt_pct(m.adapted[0]), None, "Com ligação de adaptação no MAL."),
+                        ("Anos até a adaptação", fmt_dec(m.gap_years[0], 1), None, "Mediana entre início da obra e o anime."),
+                        ("Anime superou o original", fmt_pct((sc.anime_minus_manga > 0).mean() if not sc.empty else None),
+                         None, "Entre pares com as duas notas."),
+                    ]
+                )  # fmt: skip
+                c1, c2 = st.columns(2)
+                if not sc.empty:
+                    fig = px.scatter(sc, x="manga_score", y="anime_score", hover_name="anime_title",
+                                     hover_data={"manga_title": True, "main_studio_name": True},
+                                     color_discrete_sequence=[AQUA], opacity=0.55,
+                                     title="Nota do original × nota do anime (acima da diagonal = anime melhor)",
+                                     labels={"manga_score": "original", "anime_score": "anime"})  # fmt: skip
+                    lo, hi = (
+                        sc[["manga_score", "anime_score"]].min().min(),
+                        sc[["manga_score", "anime_score"]].max().max(),
+                    )
+                    fig.add_shape(type="line", x0=lo, y0=lo, x1=hi, y1=hi, line=dict(color=GRAY, dash="dot"))
+                    with c1:
+                        show(style(fig, 420, legend=False))
+                    by_type = sc.groupby("source_type", as_index=False).agg(diff=("anime_minus_manga", "mean"),
+                                                                            n=("mal_id", "count"))  # fmt: skip
+                    by_type = by_type[by_type.n >= 3].sort_values("diff")
+                    fig = px.bar(by_type, x="diff", y="source_type", orientation="h", text_auto=".2f",
+                                 color=by_type["diff"].gt(0).map({True: "anime melhor", False: "original melhor"}),
+                                 color_discrete_map={"anime melhor": BLUE, "original melhor": RED},
+                                 title="Diferença média de nota (anime − original) por tipo de obra",
+                                 labels={"diff": "pontos", "source_type": ""})  # fmt: skip
+                    with c2:
+                        show(style(fig, 420))
+                gap = q(
+                    "SELECT * FROM analytics.mart_manga_adaptation_gap ORDER BY popularity_rank_unadapted LIMIT 100"
+                )
+                if not gap.empty:
+                    st.subheader("Populares que ainda não viraram anime")
+                    st.dataframe(
+                        gap[["popularity_rank_unadapted", "title", "media_type", "publishing_status", "start_year",
+                             "authors_label", "mean_score", "num_list_users", "mal_url"]],
+                        column_config=poster_columns({"popularity_rank_unadapted": "#", "start_year":
+                                                      st.column_config.NumberColumn("Início", format="%d"),
+                                                      "authors_label": "Autores", "publishing_status": "Status"}),
+                        hide_index=True, width="stretch", height=460,
+                    )  # fmt: skip
+
+# =============================================================================== 9. explorar
+with tabs[8]:
     st.caption(f"Recorte da barra lateral: {flt.describe()}")
     c1, c2, c3 = st.columns([2, 1, 1])
     search = c1.text_input("Buscar título (japonês ou inglês)", placeholder="ex.: frieren, gundam, ghibli…")
@@ -719,8 +915,8 @@ with tabs[7]:
         st.download_button("⬇️ Baixar CSV do recorte", data.drop(columns=["picture_url"]).to_csv(index=False).encode(),
                            "mal_recorte.csv", "text/csv")  # fmt: skip
 
-# =============================================================================== 9. pipeline
-with tabs[8]:
+# =============================================================================== 10. pipeline
+with tabs[9]:
     st.caption("Saúde da ingestão e cobertura de cada fonte — o lado de engenharia do projeto.")
     cov = q(
         """SELECT

@@ -94,6 +94,8 @@ flowchart LR
     JK[Jikan v4] --> P
     MN[anime-offline-database] --> P
     KG[Kaggle 109M interações] --> P
+    AL[AniList GraphQL<br/>elenco · staff] --> P
+    KT[Kitsu<br/>episódios] --> P
     P --> BR[(bronze<br/>JSON cru append-only)]
     BR --> ST[staging] --> IN[intermediate] --> CO[core] --> AN[analytics]
     ST --> SN[snapshot SCD2]
@@ -108,6 +110,9 @@ flowchart LR
 | **Jikan v4** | distribuição de notas 1–10, recomendações da comunidade, elenco | o que a API oficial não tem |
 | **anime-offline-database** | IDs cruzados (AniList, Kitsu, AniDB), tags temáticas | universo de IDs + ponte entre sites |
 | **Kaggle (2020)** | ~109M interações usuário × anime | comportamento real para o recomendador |
+| **MAL API v2 — mangá** | mangás, light novels, autores, revistas, ligação com o anime | adaptação × obra original |
+| **AniList GraphQL** | personagens, dubladores por idioma, staff com papel, fichas de pessoas | o "quem fez" de cada anime |
+| **Kitsu** | guia de episódios (título, data, duração) | o grão mais fino: episódio |
 
 Detalhes: [docs/architecture.md](docs/architecture.md) · limites e termos de uso: [docs/data-sources.md](docs/data-sources.md)
 
@@ -118,12 +123,15 @@ Detalhes: [docs/architecture.md](docs/architecture.md) · limites e termos de us
 - **Bronze append-only com o JSON cru** — reprocessar o modelo inteiro não faz nenhuma chamada de rede ([ADR 002](docs/adr/002-bronze-append-only-json.md)).
 - **Checkpoint derivado do próprio bronze**: a fila é "IDs conhecidos − sucesso recente − 404". Se cair, roda de novo e continua.
 - Observabilidade em `meta.runs` (cada execução, status, linhas, notas) e teste de dados que alerta se a última execução teve >20% de falhas.
+- **Carga do ecossistema em paralelo** (`malpipe ecosystem`): mangá, AniList e Kitsu ao mesmo tempo, uma thread por host com rate limiter próprio e escrita serializada no DuckDB — ~20 h em vez de ~35 h ([ADR 005](docs/adr/005-ecossistema-multifonte.md)).
+- Cliente **GraphQL** com paginação aninhada (personagens e staff), diretivas `@include` para não rebuscar o que já veio e erro de GraphQL (HTTP 200) tratado como falha; **circuit breaker** de rede e `check-sources` para diagnóstico.
 - Kaggle carregado com o `read_csv` paralelo do DuckDB (sem passar pelo pandas), com amostragem determinística de usuários para desenvolvimento.
 
-**Modelagem (`dbt/`)** — 38 modelos + 1 snapshot, 92 testes de dados, 3 unit tests
+**Modelagem (`dbt/`)** — 61 modelos + 1 snapshot, 115 testes de dados, 3 unit tests
 - **Staging** parseia o JSON (`->>`, `from_json`, `unnest`), trata contadores que chegam como string, datas parciais do MAL (`"2015-04"`) e aplica "última extração vence".
 - **Franquias por grafo**: componentes conexos das relações sequel/prequel/side story via **CTE recursiva**.
 - **Nota bayesiana** (fórmula IMDb) e **índice de polarização** a partir da distribuição de votos ([ADR 003](docs/adr/003-metricas-de-qualidade.md)).
+- **Papéis de staff normalizados** por regex ("Chief Director", "Episode Director (ep 3)"…) em 13 grupos testados; elenco por idioma; episódios com intervalo entre exibições (`lag`).
 - **Fato incremental** (`fct_anime_metrics_snapshot`, `delete+insert`) que vira série temporal semana a semana.
 - **Snapshot SCD2** de status de exibição/episódios; **contracts** em dimensões; **exposures** ligando dashboard e recomendador ao lineage; **source freshness**.
 - Testes genéricos próprios (`value_between`, `unique_combination`, `null_ratio_below`…) e **unit tests** dos modelos com lógica (grafo, polarização, bayes).
@@ -133,18 +141,20 @@ Detalhes: [docs/architecture.md](docs/architecture.md) · limites e termos de us
 - Avaliação offline com holdout: precision/recall/NDCG@10, **cobertura de catálogo** e **novidade** — e concordância dos vizinhos com as recomendações votadas pela comunidade no Jikan.
 - Recomendações para a sua lista com explicação: *"porque você deu nota alta para X"*.
 
-**Dashboard (`dashboard/`)** — Streamlit com 9 abas
+**Dashboard (`dashboard/`)** — Streamlit com 10 abas
 - Painel executivo (KPIs + gráficos com texto explicando cada número) e aba **Explorar** com filtros
   globais (ano, formato, gêneros, audiência), busca e download do recorte em CSV.
 - Pôsteres e links do MAL nas tabelas, raio-X por estúdio, linha do tempo por franquia, temporada em
   detalhe, perfil pessoal contra a comunidade e aba de **saúde do pipeline**.
+- Aba **Ecossistema**: ranking de dubladores, duplas que mais contracenaram, diretores (volume × nota),
+  guia de episódios e mangá × anime (a adaptação superou o original? quais populares ainda não viraram anime?).
 - Conexões curtas e somente leitura: o painel aberto não trava a ingestão.
 
 **Consulta em SQL (DBeaver)** — `malpipe publish` gera uma cópia de consulta independente do banco de
-trabalho e `sql/consultas_dbeaver.sql` traz 28 consultas prontas ([guia](docs/dbeaver.md)).
+trabalho e `sql/consultas_dbeaver.sql` traz 38 consultas prontas ([guia](docs/dbeaver.md)).
 
 **Engenharia**
-- 27 testes Python (HTTP mockado com `respx`, checkpoint, loaders, recsys) · ruff · GitHub Actions rodando o **pipeline inteiro** (sintético + manami real) a cada push.
+- 36 testes Python (HTTP e GraphQL mockados com `respx`, paginação, checkpoint, loaders, recsys) · ruff · GitHub Actions rodando o **pipeline inteiro** (sintético + manami real) a cada push.
 - Gerador de **dados sintéticos no formato exato das APIs**: o projeto roda sem credenciais e o CI é determinístico.
 - Dicionário de dados gerado automaticamente do manifest do dbt.
 
@@ -162,6 +172,11 @@ trabalho e `sql/consultas_dbeaver.sql` traz 28 consultas prontas ([guia](docs/db
 | Que gêneros as pessoas mais abandonam? | `analytics.mart_drop_rate_by_genre` |
 | Onde o meu gosto diverge da comunidade? | `analytics.mart_my_profile_vs_mal` |
 | Quais dubladores mais trabalham juntos? | `analytics.mart_seiyuu_network` |
+| Quem mais dublou — e em obras de que nível? | `analytics.mart_voice_actor_ranking` |
+| Quais diretores são mais consistentes? | `analytics.mart_director_performance` |
+| Os episódios estão ficando mais curtos? Quantos vão ao ar por ano? | `analytics.mart_episode_trends` |
+| O anime costuma superar o mangá/light novel original? | `analytics.mart_adaptation_scores` |
+| Que mangás populares ainda não viraram anime? | `analytics.mart_manga_adaptation_gap` |
 | O que eu deveria assistir agora? | `ml.recommendations_for_user` |
 
 <table><tr>
@@ -200,6 +215,8 @@ malpipe mal-details                  # carga longa (~8 h a 1 req/s); retomável
 malpipe jikan statistics
 malpipe my-list
 malpipe kaggle data/raw/animelist.csv   # ver docs/data-sources.md
+malpipe check-sources                # testa todas as fontes em segundos
+malpipe ecosystem                    # mangá + elenco/staff + episódios em paralelo (~20 h, retomável)
 make build && make dashboard
 ```
 
@@ -208,17 +225,18 @@ Rotina semanal: `malpipe incremental && make build` — agendamento no Windows e
 ### Comandos
 
 ```
-malpipe init | status | sample | manami | discover | mal-details | jikan | my-list | kaggle | incremental | recommend | dbt | publish | export
-make demo | ingest | build | publish | dbt-build | dbt-docs | recommend | dashboard | test | lint
+malpipe init | status | sample | manami | discover | mal-details | jikan | my-list | kaggle | incremental
+        manga | anilist | kitsu | ecosystem | check-sources | recommend | dbt | publish | export
+make demo | ingest | ecosystem | sources | build | publish | dbt-build | dbt-docs | recommend | dashboard | test | lint
 ```
 
 ## Estrutura
 
 ```
 ├── src/malpipe/            # ingestão (CLI typer)
-│   ├── http.py             #   cliente com rate limit / retry
+│   ├── http.py             #   cliente com rate limit / retry / circuit breaker (GET e POST)
 │   ├── warehouse.py        #   bronze, meta.runs, checkpoint
-│   ├── sources/            #   mal_api · jikan · manami · kaggle
+│   ├── sources/            #   mal_api (anime + mangá) · anilist · kitsu · jikan · manami · kaggle
 │   ├── sample_data.py      #   gerador sintético no formato das APIs
 │   └── recsys/             #   modelos, avaliação, pipeline
 ├── dbt/
@@ -227,8 +245,8 @@ make demo | ingest | build | publish | dbt-build | dbt-docs | recommend | dashbo
 │   ├── models/marts/core/  #   dims, bridges, fatos (incremental), contracts
 │   ├── models/marts/analytics/  # marts por pergunta + exposures
 │   ├── snapshots/  tests/  macros/  analyses/
-├── dashboard/              # Streamlit: app.py (9 abas) + lib.py (filtros, formatação, estilo)
-├── sql/                    # 28 consultas prontas para o DBeaver (validadas no CI)
+├── dashboard/              # Streamlit: app.py (10 abas) + lib.py (filtros, formatação, estilo)
+├── sql/                    # 38 consultas prontas para o DBeaver (validadas no CI)
 ├── tests/                  # pytest
 ├── docs/                   # arquitetura, fontes, runbook, ADRs, dicionário de dados
 └── .github/workflows/ci.yml
@@ -239,23 +257,24 @@ make demo | ingest | build | publish | dbt-build | dbt-docs | recommend | dashbo
 - [Arquitetura e modelo dimensional](docs/architecture.md)
 - [Fontes, limites e termos de uso](docs/data-sources.md)
 - [Runbook (operação, agendamento, diagnóstico)](docs/runbook.md)
-- [Consultando no DBeaver](docs/dbeaver.md) — cópia de consulta + 28 consultas prontas
+- [Consultando no DBeaver](docs/dbeaver.md) — cópia de consulta + 38 consultas prontas
 - [Dicionário de dados](docs/data-dictionary.md) — gerado do dbt
-- Decisões: [001 DuckDB](docs/adr/001-duckdb-como-warehouse.md) · [002 Bronze append-only](docs/adr/002-bronze-append-only-json.md) · [003 Métricas de qualidade](docs/adr/003-metricas-de-qualidade.md) · [004 Recomendador](docs/adr/004-recomendador.md)
+- Decisões: [001 DuckDB](docs/adr/001-duckdb-como-warehouse.md) · [002 Bronze append-only](docs/adr/002-bronze-append-only-json.md) · [003 Métricas de qualidade](docs/adr/003-metricas-de-qualidade.md) · [004 Recomendador](docs/adr/004-recomendador.md) · [005 Ecossistema multifonte](docs/adr/005-ecossistema-multifonte.md)
 - Lineage interativo: `make dbt-docs`
 
 ## Roadmap
 
 - [x] Primeira carga real completa e uma seção de achados neste README
 - [ ] Polarização com Jikan, recomendador colaborativo com Kaggle e série temporal semanal
-- [ ] Mangá (mesmos endpoints da API) e cruzamento adaptação × obra original
+- [x] Ecossistema: mangá × adaptação, elenco e staff (AniList), episódios (Kitsu)
+- [ ] Achados do ecossistema com os dados reais nesta página
 - [ ] ALS para feedback implícito e embeddings de sinopse no modelo de conteúdo
 - [ ] Exportar marts em Parquet e publicar o dashboard
 
 ## Uso dos dados
 
 Projeto pessoal e não comercial. Nenhum dado extraído é versionado aqui. MyAnimeList é marca de seus
-respectivos donos; este projeto não é afiliado ao MAL nem ao Jikan. O anime-offline-database é
+respectivos donos; este projeto não é afiliado ao MAL, ao Jikan, à AniList nem ao Kitsu. O anime-offline-database é
 distribuído sob ODbL/DbCL pelo manami-project. Código sob licença MIT.
 
 ---

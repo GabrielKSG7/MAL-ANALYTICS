@@ -38,3 +38,34 @@
 {% macro status_count(path) -%}
     try_cast(payload->>'$.statistics.status.{{ path }}' as bigint)
 {%- endmacro %}
+
+{# Tipo JSON de uma pessoa (Staff) da AniList, reaproveitado em dubladores e staff. #}
+{% macro anilist_person_type() -%}
+{"id": "INTEGER", "name": {"full": "VARCHAR", "native": "VARCHAR"}, "languageV2": "VARCHAR", "gender": "VARCHAR", "favourites": "INTEGER", "primaryOccupations": ["VARCHAR"], "homeTown": "VARCHAR", "yearsActive": ["INTEGER"], "dateOfBirth": {"year": "INTEGER", "month": "INTEGER", "day": "INTEGER"}, "dateOfDeath": {"year": "INTEGER", "month": "INTEGER", "day": "INTEGER"}, "image": {"medium": "VARCHAR"}, "siteUrl": "VARCHAR"}
+{%- endmacro %}
+
+{# Data "fuzzy" da AniList ({year, month, day} com partes nulas) → DATE quando houver ano. #}
+{% macro fuzzy_date(col) -%}
+    case when {{ col }}.year is not null
+         then make_date({{ col }}.year, coalesce({{ col }}.month, 1), coalesce({{ col }}.day, 1)) end
+{%- endmacro %}
+
+{# Normaliza o papel de staff ("Episode Director (eps 1, 5)") num grupo analítico. #}
+{% macro staff_role_group(role) -%}
+    case
+        when {{ role }} ilike 'Original Creator%' or {{ role }} ilike 'Original Story%' then 'Criação original'
+        when regexp_matches({{ role }}, '^(Chief |Series |General )?Director( \(.*\))?$') then 'Direção'
+        when {{ role }} ilike 'Assistant Director%' then 'Direção assistente'
+        when {{ role }} ilike 'Episode Director%' then 'Direção de episódio'
+        when {{ role }} ilike 'Series Composition%' or {{ role }} ilike 'Script%'
+          or {{ role }} ilike 'Screenplay%' then 'Roteiro'
+        when {{ role }} ilike 'Storyboard%' then 'Storyboard'
+        when {{ role }} ilike '%Character Design%' then 'Character design'
+        when {{ role }} ilike 'Music%' or {{ role }} ilike 'Theme Song Composition%' then 'Música'
+        when {{ role }} ilike 'Sound Director%' then 'Direção de som'
+        when {{ role }} ilike 'Art Director%' then 'Direção de arte'
+        when {{ role }} ilike '%Animation Director%' or {{ role }} ilike 'Key Animation%' then 'Animação'
+        when {{ role }} ilike 'Producer%' or {{ role }} ilike 'Executive Producer%' then 'Produção'
+        else 'Outros'
+    end
+{%- endmacro %}

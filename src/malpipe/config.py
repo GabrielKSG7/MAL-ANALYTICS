@@ -49,11 +49,20 @@ class Settings:
 
     mal_client_id: str | None = field(default_factory=lambda: os.getenv("MAL_CLIENT_ID"))
     mal_username: str | None = field(default_factory=lambda: os.getenv("MAL_USERNAME"))
-    mal_base_url: str = "https://api.myanimelist.net/v2"
+    mal_base_url: str = field(default_factory=lambda: os.getenv("MAL_BASE_URL", "https://api.myanimelist.net/v2"))
     mal_rps: float = field(default_factory=lambda: _float("MAL_RPS", 1.0))
 
     jikan_base_url: str = field(default_factory=lambda: os.getenv("JIKAN_BASE_URL", "https://api.jikan.moe/v4"))
     jikan_rps: float = field(default_factory=lambda: _float("JIKAN_RPS", 1.0))
+
+    anilist_url: str = field(default_factory=lambda: os.getenv("ANILIST_URL", "https://graphql.anilist.co"))
+    # A AniList está em "modo degradado" (30 req/min); 0,45 req/s ≈ 27/min deixa folga.
+    anilist_rps: float = field(default_factory=lambda: _float("ANILIST_RPS", 0.45))
+    # Páginas de 25 personagens e 25 membros de staff por anime (4 → até 100 de cada).
+    anilist_max_pages: int = field(default_factory=lambda: _int("ANILIST_MAX_PAGES", 4))
+
+    kitsu_base_url: str = field(default_factory=lambda: os.getenv("KITSU_BASE_URL", "https://kitsu.app/api/edge"))
+    kitsu_rps: float = field(default_factory=lambda: _float("KITSU_RPS", 2.0))
 
     manami_url: str = (
         "https://github.com/manami-project/anime-offline-database/releases/latest/download/"

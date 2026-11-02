@@ -37,6 +37,19 @@ sources:
         description: Jikan /anime/{id}/characters — personagens e dubladores.
       - name: manami_anime
         description: anime-offline-database (manami-project), um snapshot semanal por dataset_date.
+      - name: mal_manga_discovery
+        description: IDs de mangá encontrados pelo ranking da MAL API.
+      - name: mal_manga
+        description: Detalhe de cada mangá (GET /manga/{id}) — uma linha por extração.
+        columns:
+          - name: mal_id
+            data_tests: [not_null]
+      - name: anilist_media
+        description: >
+          Anime na AniList buscado pelo ID do MAL, com todas as páginas de personagens (com
+          dubladores) e staff mescladas num único JSON por extração.
+      - name: kitsu_episodes
+        description: Lista de episódios de cada anime (Kitsu), todas as páginas mescladas.
       - name: kaggle_animelist
         description: Interações usuário × anime do dataset Kaggle hernan4444 (2020).
         config:

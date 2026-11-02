@@ -248,3 +248,101 @@ SELECT command AS comando, started_at AS inicio, finished_at AS fim, status,
 FROM meta.runs
 ORDER BY started_at DESC
 LIMIT 30;
+
+
+-- =====================================================================================
+-- ECOSSISTEMA: PESSOAS, PERSONAGENS, EPISÓDIOS E MANGÁ   (requer `malpipe ecosystem`)
+-- =====================================================================================
+
+-- 28. Dubladores japoneses com mais personagens (e o personagem mais querido de cada um)
+SELECT rank_by_volume AS pos, person_name AS dublador, person_name_native AS nome_nativo,
+       num_anime AS animes, num_characters AS personagens, num_main_roles AS protagonistas,
+       round(avg_anime_score, 2) AS nota_media, most_famous_character AS personagem_mais_querido,
+       most_famous_character_anime AS em, first_year AS desde
+FROM analytics.mart_voice_actor_ranking
+WHERE voice_language = 'Japanese'                                       -- ◀ troque aqui (English, Portuguese (BR)...)
+ORDER BY rank_by_volume
+LIMIT 30;
+
+-- 29. Todos os papéis de um dublador, do anime mais popular ao menos
+SELECT a.title, a.season_year AS ano, ch.character_name AS personagem, c.character_role AS papel,
+       a.mean_score AS nota, a.num_list_users AS membros
+FROM core.bridge_anime_cast c
+JOIN core.dim_person p USING (person_id)
+JOIN core.dim_character ch USING (character_id)
+JOIN core.dim_anime a USING (mal_id)
+WHERE p.person_name ILIKE '%kana hanazawa%'                             -- ◀ troque aqui
+ORDER BY a.num_list_users DESC;
+
+-- 30. Diretores mais consistentes (3+ obras com nota), ponderado por público
+SELECT person_name AS diretor, num_titles AS obras, round(median_score, 2) AS mediana,
+       round(members_weighted_score, 2) AS nota_ponderada, round(score_stddev, 2) AS desvio,
+       best_title AS melhor_obra, usual_studio AS estudio_habitual, first_year AS desde, last_year AS ate
+FROM analytics.mart_director_performance
+ORDER BY members_weighted_score DESC
+LIMIT 30;
+
+-- 31. Quem fez o quê num anime: staff agrupado por função
+SELECT s.role_group AS funcao, string_agg(DISTINCT p.person_name, ', ') AS pessoas
+FROM core.bridge_anime_staff s
+JOIN core.dim_person p USING (person_id)
+WHERE s.mal_id = 5114                                                   -- ◀ troque aqui (FMA: Brotherhood)
+  AND s.role_group <> 'Outros'
+GROUP BY 1
+ORDER BY 1;
+
+-- 32. Parcerias diretor × compositor que mais se repetem
+WITH d AS (SELECT mal_id, person_id FROM core.bridge_anime_staff WHERE role_group = 'Direção'),
+     m AS (SELECT mal_id, person_id FROM core.bridge_anime_staff WHERE role_group = 'Música')
+SELECT pd.person_name AS diretor, pm.person_name AS compositor, count(DISTINCT d.mal_id) AS animes_juntos,
+       round(avg(a.mean_score), 2) AS nota_media, string_agg(DISTINCT a.title, ' | ') AS titulos
+FROM d JOIN m USING (mal_id)
+JOIN core.dim_person pd ON pd.person_id = d.person_id
+JOIN core.dim_person pm ON pm.person_id = m.person_id
+JOIN core.dim_anime a ON a.mal_id = d.mal_id
+WHERE d.person_id <> m.person_id
+GROUP BY 1, 2
+HAVING count(DISTINCT d.mal_id) >= 2
+ORDER BY animes_juntos DESC, nota_media DESC
+LIMIT 30;
+
+-- 33. Guia de episódios de um anime (com intervalo entre exibições)
+SELECT episode_number AS ep, season_number AS temporada, episode_title AS titulo,
+       aired_on AS exibicao, length_min AS minutos, days_since_previous AS dias_desde_anterior
+FROM core.fct_episode
+WHERE mal_id = 21                                                       -- ◀ troque aqui (One Piece)
+ORDER BY episode_number;
+
+-- 34. Episódios exibidos por ano e duração média
+SELECT aired_year AS ano, episodes_aired AS episodios, anime_airing AS animes_no_ar,
+       round(avg_length_min, 1) AS duracao_media_min, round(total_hours) AS horas_totais
+FROM analytics.mart_episode_trends
+ORDER BY ano DESC;
+
+-- 35. Mangás populares que ainda não viraram anime
+SELECT popularity_rank_unadapted AS pos, title AS titulo, media_type AS tipo, publishing_status AS status,
+       start_year AS inicio, authors_label AS autores, magazines_label AS revista,
+       mean_score AS nota, num_list_users AS membros
+FROM analytics.mart_manga_adaptation_gap
+ORDER BY pos
+LIMIT 50;
+
+-- 36. Adaptação melhor ou pior que o original? Maiores diferenças de nota
+SELECT manga_title AS original, source_type AS tipo, manga_score AS nota_original,
+       anime_title AS anime, anime_score AS nota_anime, round(anime_minus_manga, 2) AS diferenca,
+       main_studio_name AS estudio, years_after_original AS anos_depois
+FROM analytics.mart_adaptation_scores
+WHERE manga_score IS NOT NULL AND anime_score IS NOT NULL
+ORDER BY abs(anime_minus_manga) DESC
+LIMIT 40;
+
+-- 37. Autores com mais obras adaptadas e a nota média das adaptações
+SELECT au.author_name AS autor, count(DISTINCT au.manga_id) AS obras,
+       count(DISTINCT ma.mal_id) AS animes, round(avg(a.mean_score), 2) AS nota_media_animes
+FROM core.bridge_manga_author au
+JOIN core.bridge_manga_anime ma USING (manga_id)
+JOIN core.dim_anime a ON a.mal_id = ma.mal_id
+WHERE ma.relation_type = 'adaptation'
+GROUP BY 1
+ORDER BY animes DESC, nota_media_animes DESC
+LIMIT 30;

@@ -125,13 +125,20 @@ class PoliteClient:
         return self.consecutive_network_failures >= self.circuit_breaker
 
     def get(self, url: str, params: dict | None = None) -> FetchResult:
+        return self._request("GET", url, params=params)
+
+    def post_json(self, url: str, body: dict) -> FetchResult:
+        """POST com corpo JSON (usado pela API GraphQL da AniList)."""
+        return self._request("POST", url, json=body)
+
+    def _request(self, method: str, url: str, params: dict | None = None, json: dict | None = None) -> FetchResult:
         last_error: str | None = None
         last_status = 0
         network_attempts = 0
         for attempt in range(self.max_retries + 1):
             self.limiter.wait()
             try:
-                response = self._client.get(url, params=params)
+                response = self._client.request(method, url, params=params, json=json)
             except httpx.TransportError as exc:
                 network_attempts += 1
                 last_error, last_status = f"{type(exc).__name__}: {exc}", 0

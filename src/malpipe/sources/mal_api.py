@@ -32,6 +32,15 @@ ANIME_FIELDS = ",".join(
     ]
 )  # fmt: skip
 
+MANGA_FIELDS = ",".join(
+    [
+        "id", "title", "main_picture", "alternative_titles", "start_date", "end_date", "synopsis", "mean",
+        "rank", "popularity", "num_list_users", "num_scoring_users", "nsfw", "genres", "created_at",
+        "updated_at", "media_type", "status", "num_volumes", "num_chapters", "authors{first_name,last_name}",
+        "serialization{name}", "related_anime", "related_manga", "background",
+    ]
+)  # fmt: skip
+
 SEASONS = ("winter", "spring", "summer", "fall")
 PAGE_LIMIT = 500  # máximo aceito por ranking/season
 LIST_PAGE_LIMIT = 1000  # máximo aceito por user animelist
@@ -69,11 +78,18 @@ def paginate(client: PoliteClient, url: str, params: dict | None) -> Iterator[Fe
 
 
 def discover_ranking(
-    client: PoliteClient, wh: Warehouse, run: RunContext, ranking_type: str = "all", max_pages: int | None = None
+    client: PoliteClient,
+    wh: Warehouse,
+    run: RunContext,
+    ranking_type: str = "all",
+    max_pages: int | None = None,
+    kind: str = "anime",
 ) -> int:
+    """Descobre IDs pelo ranking. `kind` = "anime" ou "manga" (mesmo formato de resposta)."""
     params = {"ranking_type": ranking_type, "limit": PAGE_LIMIT, "fields": "id", "nsfw": "true"}
+    table = f"bronze.mal_{kind}_discovery"
     written = 0
-    for page, result in enumerate(paginate(client, "/anime/ranking", params), start=1):
+    for page, result in enumerate(paginate(client, f"/{kind}/ranking", params), start=1):
         if not result.ok:
             log.error("falha no ranking (página %s): %s %s", page, result.status_code, result.error)
             break
@@ -81,10 +97,8 @@ def discover_ranking(
             (item["node"]["id"], f"ranking:{ranking_type}", utcnow(), run.run_id)
             for item in result.payload.get("data", [])
         ]
-        written += wh.insert_rows(
-            "bronze.mal_anime_discovery", ("mal_id", "discovered_via", "extracted_at", "run_id"), rows
-        )
-        log.info("ranking %s: página %s, %s IDs acumulados", ranking_type, page, written)
+        written += wh.insert_rows(table, ("mal_id", "discovered_via", "extracted_at", "run_id"), rows)
+        log.info("ranking %s/%s: página %s, %s IDs acumulados", kind, ranking_type, page, written)
         if max_pages and page >= max_pages:
             break
     run.add(written)
@@ -116,24 +130,31 @@ def discover_seasons(client: PoliteClient, wh: Warehouse, run: RunContext, years
 
 
 def fetch_details(
-    client: PoliteClient, wh: Warehouse, run: RunContext, ids: Iterable[int], flush_every: int = 25
+    client: PoliteClient,
+    wh: Warehouse,
+    run: RunContext,
+    ids: Iterable[int],
+    flush_every: int = 25,
+    kind: str = "anime",
 ) -> dict[int, int]:
-    """Extrai o detalhe completo de cada ID. Grava em lotes para não perder progresso."""
+    """Extrai o detalhe completo de cada ID (anime ou mangá). Grava em lotes para não perder progresso."""
+    fields = ANIME_FIELDS if kind == "anime" else MANGA_FIELDS
+    table = f"bronze.mal_{kind}"
     buffer: list[tuple] = []
     status_count: dict[int, int] = {}
     columns = ("mal_id", "http_status", "payload", "error", "extracted_at", "run_id")
     ids = list(ids)
     for i, mal_id in enumerate(ids, start=1):
-        result = client.get(f"/anime/{mal_id}", params={"fields": ANIME_FIELDS, "nsfw": "true"})
+        result = client.get(f"/{kind}/{mal_id}", params={"fields": fields, "nsfw": "true"})
         status_count[result.status_code] = status_count.get(result.status_code, 0) + 1
         buffer.append((mal_id, result.status_code, to_json(result.payload), result.error, utcnow(), run.run_id))
         if client.host_unreachable:
-            run.add(wh.insert_rows("bronze.mal_anime", columns, buffer))
+            run.add(wh.insert_rows(table, columns, buffer))
             client.raise_if_unreachable()
         if len(buffer) >= flush_every or i == len(ids):
-            run.add(wh.insert_rows("bronze.mal_anime", columns, buffer))
+            run.add(wh.insert_rows(table, columns, buffer))
             buffer.clear()
-            log.info("detalhes MAL: %s/%s (%s)", i, len(ids), status_count)
+            log.info("detalhes MAL %s: %s/%s (%s)", kind, i, len(ids), status_count)
     return status_count
 
 
