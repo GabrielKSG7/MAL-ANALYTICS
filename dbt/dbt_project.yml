@@ -19,7 +19,10 @@ vars:
   studio_min_titles: 5
   # Mínimo de votos para entrar na análise de polarização.
   polarization_min_votes: 500
-  # "Joia escondida" = nota bayesiana alta e popularidade abaixo deste percentil de membros.
+  # "Joia escondida": entre títulos com pelo menos `hidden_gem_min_votes` votos, nota no
+  # percentil >= min_quality_pct e membros no percentil <= max_members_pct.
+  hidden_gem_min_votes: 1000
+  hidden_gem_min_quality_pct: 0.85
   hidden_gem_max_members_pct: 0.30
   # Mínimo de avaliações para um usuário entrar nas análises de comportamento.
   user_min_ratings: 5

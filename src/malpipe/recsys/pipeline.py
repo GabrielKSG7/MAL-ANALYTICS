@@ -103,7 +103,7 @@ def run_content_only(
         return {"metrics": [], "agreement": {}, "n_recommendations": 0}
 
     model = ContentRecommender(features)
-    top = top_k(model.score(row), exclude=seen, k=max(k, 20))[0]
+    top = top_k(model.score(row), exclude=seen, k=max(k, 100))[0]
     titles = dict(con.execute("SELECT mal_id, title FROM core.dim_anime").fetchall())
     ptw = set(mine[mine.list_status == "plan_to_watch"].mal_id.astype(int))
     liked = row.tocsr()
@@ -240,7 +240,7 @@ def run(
         else:
             ptw = set(mine[mine.list_status == "plan_to_watch"].mal_id.astype(int))
             for model in (hybrid, knn):
-                top = top_k(model.score(row), exclude=seen, k=max(k, 20))[0]
+                top = top_k(model.score(row), exclude=seen, k=max(k, 100))[0]
                 for rank, j in enumerate(top, start=1):
                     because = knn.explain(row, int(j))
                     recs_out.append({

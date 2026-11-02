@@ -38,13 +38,15 @@ models:
         data_tests: [unique, not_null]
 
   - name: mart_hidden_gems
-    description: Alta nota bayesiana e baixa popularidade — boas descobertas.
+    description: Nota no topo (entre títulos com votos suficientes) e poucos membros — boas descobertas.
     columns:
       - name: mal_id
         data_tests: [unique, not_null]
 
   - name: mart_franchise_summary
-    description: Resumo por franquia (2+ entradas) com evolução da nota ao longo das temporadas.
+    description: >
+      Resumo por franquia (2+ entradas). Nome = entrada mais popular; evolução da nota compara a
+      primeira e a última temporada de TV (nula se a franquia tem menos de 2 entradas de TV com nota).
     columns:
       - name: franchise_id
         data_tests: [unique, not_null]

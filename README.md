@@ -27,6 +27,65 @@ comunidade?* — é preciso **construir a base**. Isso exige os problemas reais 
 APIs com rate limit, cargas de horas que podem cair no meio, JSON aninhado e inconsistente, dados
 parciais, integração de fontes com chaves diferentes e qualidade de dados verificável.
 
+## O que os dados mostram
+
+> Primeira carga real em **1º/nov/2026**: **30.229 animes** extraídos da MAL API (todos com HTTP 200,
+> ~9h40 a 1 req/s), cruzados com o anime-offline-database. Números das marts `analytics.*`.
+
+**1. As notas estão subindo — e o "chão" subiu mais que o "teto".**
+A nota média dos títulos estreados por ano (TV, filme e ONA) ficou estável entre **6,4 e 6,5** de 2011 a
+2017, e desde então sobe sem parar: **6,65** (2020) → **6,98** (2024) → **7,09** (2026, ano em curso).
+O percentil 10 foi de **5,30 → 6,03** entre 2017 e 2024, enquanto o percentil 90 andou bem menos
+(**7,64 → 7,97**): há menos títulos muito mal avaliados. Ressalva: títulos recentes são votados primeiro
+pelos fãs mais engajados, e a nota tende a assentar com o tempo — a série semanal
+(`fct_anime_metrics_snapshot`) vai permitir medir esse efeito.
+→ `mart_score_inflation`
+
+**2. O anime original está sumindo; adaptação de mangá e light novel domina.**
+Média das temporadas com 50+ títulos com nota:
+
+| Ano | Original | Mangá | Light novel | Sequências |
+|---|---|---|---|---|
+| 2016 | 41% | 25% | 4% | 25% |
+| 2020 | 34% | 24% | 6% | 28% |
+| 2024 | 25% | 32% | 11% | 34% |
+| 2026 | 15% | 45% | 17% | 34% |
+
+→ `mart_season_trends`
+
+**3. "Melhor estúdio" depende da métrica — e isso é o achado.**
+Entre estúdios com 30+ títulos, a nota bayesiana ponderada por votos põe no topo **Wit Studio (8,31)**,
+**Studio Ghibli (8,28)**, **CoMix Wave Films (8,19)** e **ufotable (8,19)**. Só que a ponderação por votos é
+puxada pelos sucessos: a CoMix Wave chega lá graças a *Kimi no Na wa.*, mas a **mediana** dos seus 61 títulos
+é **5,69**. Consistência sozinha também engana — o estúdio com menor variação entre 100+ títulos (AQUA ARIS,
+desvio 0,28) é consistentemente mediano (mediana 5,80). Combinando escala e qualidade, **Kyoto Animation**
+tem a maior mediana entre estúdios com 100+ títulos (**7,56**), seguida por **Bones** (7,31) e **Shaft** (7,27),
+e Bones e KyoAni estão entre os mais consistentes do top 20 (desvio ≈ 0,66). Em alcance, **A-1 Pictures**
+(68,8 mi de membros somados) e **Madhouse** (64,7 mi) lideram.
+→ `mart_studio_performance`
+
+**4. As melhores temporadas da história, pelo título de topo:** *Sousou no Frieren* (outono/2023, **9,24**),
+*Fullmetal Alchemist: Brotherhood* (primavera/2009, **9,11**), *Steins;Gate* (primavera/2011, **9,07**) e
+*Re:Zero 4th Season* (primavera/2026, **9,07**).
+
+**5. Meu perfil contra o MAL** (lista pública [`gabu_rieru`](https://myanimelist.net/animelist/gabu_rieru),
+778 títulos com nota, ~4.400 horas assistidas):
+- Sou, em média, **0,53 ponto mais crítico** que a comunidade (7,00 × 7,53), com correlação de **0,65**.
+- Fico **acima** do MAL em *Award Winning* (+0,25), *Avant Garde* (+0,38) e em estúdios autorais como
+  **Khara** (+0,74), **Shaft** (+0,63) e **Trigger** (+0,58).
+- Fico bem **abaixo** em *Harem* (−1,70), *Ecchi* (−1,28) e *Horror* (−1,18), e em estúdios como
+  **Lerche** (−1,64), **TMS** (−1,46), **J.C.Staff** (−1,37) e **Studio Pierrot** (−1,06).
+- Filmes são onde mais concordo com a comunidade (−0,26); séries de TV, onde menos (−0,73).
+→ `mart_my_profile_vs_mal`
+
+**6. O recomendador "adivinhou" a minha fila.** Só com o modelo de conteúdo (sem dados de outros
+usuários ainda), **18 dos 20** primeiros recomendados já estavam no meu *plan-to-watch* — de uma fila de
+2.021 títulos num catálogo de 8.489 candidatos (ao acaso, seriam no máximo ~26%). O dashboard tem um filtro para mostrar só descobertas novas.
+→ `ml.recommendations_for_user`
+
+<sub>Pendentes: polarização (depende do Jikan), "em alta" (depende da 2ª extração semanal) e o
+recomendador colaborativo (depende do Kaggle).</sub>
+
 ## Arquitetura
 
 ```mermaid
@@ -173,7 +232,8 @@ make demo | ingest | build | dbt-build | dbt-docs | recommend | dashboard | test
 
 ## Roadmap
 
-- [ ] Primeira carga real completa e uma seção de achados neste README
+- [x] Primeira carga real completa e uma seção de achados neste README
+- [ ] Polarização com Jikan, recomendador colaborativo com Kaggle e série temporal semanal
 - [ ] Mangá (mesmos endpoints da API) e cruzamento adaptação × obra original
 - [ ] ALS para feedback implícito e embeddings de sinopse no modelo de conteúdo
 - [ ] Exportar marts em Parquet e publicar o dashboard

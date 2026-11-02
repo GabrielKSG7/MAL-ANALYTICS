@@ -316,8 +316,16 @@ with tabs[8]:
                 "Modelo de conteúdo (gêneros, tags, estúdio, origem, década) a partir da sua lista. "
                 "Carregue o Kaggle para ativar o modelo híbrido com filtragem colaborativa."
             )
+        share_ptw = recs.already_in_plan_to_watch.head(20).mean()
+        st.caption(
+            f"{share_ptw:.0%} do top 20 já está no seu plan-to-watch — o modelo concorda com o que você já "
+            "queria ver. Marque a opção abaixo para ver só descobertas novas."
+        )
+        only_new = st.checkbox("Só descobertas (esconder o que já está no plan-to-watch)", value=False)
+        shown = recs[~recs.already_in_plan_to_watch] if only_new else recs
+        shown = shown.head(30).assign(rank=lambda df: range(1, len(df) + 1))
         st.dataframe(
-            recs[["username", "rank", "title", "because_you_liked", "already_in_plan_to_watch"]],
+            shown[["rank", "title", "because_you_liked", "already_in_plan_to_watch"]],
             width="stretch",
             hide_index=True,
         )
