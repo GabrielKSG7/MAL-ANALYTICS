@@ -215,6 +215,72 @@ def recommend(
     )
 
 
+@app.command()
+def publish(
+    include_bronze: Annotated[
+        bool, typer.Option(help="Incluir o bronze (JSON cru). Sem ele a cópia fica bem menor.")
+    ] = False,
+) -> None:
+    """Gera a cópia de consulta do banco (REPORTS_DB_PATH) para usar no DBeaver/Power BI.
+
+    A cópia é um arquivo DuckDB independente: pode ficar aberta no DBeaver sem travar a ingestão
+    nem o dbt. Rode de novo após cada build para atualizar.
+    """
+    import shutil
+    import time
+
+    import duckdb
+
+    settings = get_settings()
+    src, dst = settings.duckdb_path, settings.reports_db_path
+    if src.resolve() == dst.resolve():
+        raise typer.BadParameter("REPORTS_DB_PATH precisa ser diferente de DUCKDB_PATH")
+    tmp = dst.with_suffix(".tmp.duckdb")
+    tmp.unlink(missing_ok=True)
+    started = time.monotonic()
+
+    con = duckdb.connect(str(tmp))
+    con.execute(f"ATTACH '{src.as_posix()}' AS src (READ_ONLY)")
+    schemas = [
+        r[0]
+        for r in con.execute(
+            "SELECT DISTINCT schema_name FROM duckdb_schemas() WHERE database_name = 'src' "
+            "AND schema_name NOT IN ('information_schema', 'pg_catalog', 'main')"
+        ).fetchall()
+    ]
+    if not include_bronze:
+        schemas = [s for s in schemas if s != "bronze"]
+    copied = 0
+    for schema in sorted(schemas):
+        con.execute(f'CREATE SCHEMA IF NOT EXISTS "{schema}"')
+        objects = con.execute(
+            "SELECT table_name, table_type FROM information_schema.tables "
+            "WHERE table_catalog = 'src' AND table_schema = ?",
+            [schema],
+        ).fetchall()
+        for name, _kind in objects:
+            # views viram tabelas: a cópia não depende de nada do banco original
+            con.execute(f'CREATE OR REPLACE TABLE "{schema}"."{name}" AS SELECT * FROM src."{schema}"."{name}"')
+            copied += 1
+        console.print(f"  {schema}: {len(objects)} objetos")
+    con.execute("DETACH src")
+    con.close()
+
+    try:
+        dst.unlink(missing_ok=True)
+    except PermissionError as exc:
+        tmp.unlink(missing_ok=True)
+        raise typer.BadParameter(
+            f"{dst} está em uso (DBeaver aberto?). Desconecte no DBeaver e rode `malpipe publish` de novo."
+        ) from exc
+    shutil.move(str(tmp), str(dst))
+    size = dst.stat().st_size / 1e6
+    console.print(
+        f"[green]ok[/] {copied} tabelas em {dst} ({size:.0f} MB, {time.monotonic() - started:.0f}s). "
+        "Conecte o DBeaver a este arquivo."
+    )
+
+
 @app.command(
     "dbt",
     context_settings={"allow_extra_args": True, "ignore_unknown_options": True},

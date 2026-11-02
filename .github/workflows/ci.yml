@@ -66,6 +66,22 @@ jobs:
       - name: Recomendador
         run: malpipe recommend --username demo_user
 
+      - name: Cópia de consulta (DBeaver) + consultas prontas
+        run: |
+          REPORTS_DB_PATH=${{ github.workspace }}/data/ci_reports.duckdb malpipe publish
+          python scripts/check_sql.py ${{ github.workspace }}/data/ci_reports.duckdb
+
+      - name: Dashboard sobe sem erros (AppTest)
+        run: |
+          pip install -e ".[dashboard]"
+          python -c "
+          from streamlit.testing.v1 import AppTest
+          at = AppTest.from_file('dashboard/app.py', default_timeout=120).run()
+          assert not at.exception, [e.value for e in at.exception]
+          assert not at.error, [e.value for e in at.error]
+          print('dashboard ok:', len(at.metric), 'KPIs,', len(at.dataframe), 'tabelas')
+          "
+
       - name: Manami real (dados públicos do GitHub)
         run: |
           DUCKDB_PATH=${{ github.workspace }}/data/manami.duckdb malpipe manami

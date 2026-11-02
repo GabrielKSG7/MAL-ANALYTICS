@@ -43,6 +43,9 @@ class Settings:
 
     duckdb_path: Path = field(default_factory=lambda: _project_path("DUCKDB_PATH", "data/mal.duckdb"))
     data_dir: Path = field(default_factory=lambda: _project_path("DATA_DIR", "data"))
+    # Cópia do banco para ferramentas externas (DBeaver, Power BI...). Fica separada para que um
+    # cliente aberto nunca trave a ingestão/o dbt — o DuckDB aceita um único processo escrevendo.
+    reports_db_path: Path = field(default_factory=lambda: _project_path("REPORTS_DB_PATH", "data/mal_reports.duckdb"))
 
     mal_client_id: str | None = field(default_factory=lambda: os.getenv("MAL_CLIENT_ID"))
     mal_username: str | None = field(default_factory=lambda: os.getenv("MAL_USERNAME"))

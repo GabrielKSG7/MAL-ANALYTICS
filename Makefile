@@ -3,7 +3,7 @@ SHELL := /bin/bash
 # O caminho do banco vem do .env (DUCKDB_PATH); `malpipe dbt` repassa o mesmo caminho para o dbt.
 DBT := malpipe dbt
 
-.PHONY: help install demo ingest build dbt-build dbt-docs recommend dashboard test lint status clean
+.PHONY: help install demo ingest build publish dbt-build dbt-docs recommend dashboard test lint status clean
 
 help: ## Lista os comandos
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -20,13 +20,16 @@ demo: ## Ponta a ponta com dados SINTÉTICOS (sem credenciais): bronze → dbt �
 ingest: ## Ingestão incremental real (manami → temporadas → detalhes → Jikan → sua lista)
 	malpipe incremental
 
-build: dbt-build recommend ## dbt build + recomendador
+build: dbt-build recommend publish ## dbt build + recomendador + cópia para o DBeaver
 
 dbt-build: ## Roda modelos, snapshot, testes e unit tests do dbt
 	$(DBT) build
 
 dbt-docs: ## Gera e abre a documentação do dbt (lineage)
 	$(DBT) docs generate && $(DBT) docs serve --port 8081
+
+publish: ## Atualiza a cópia de consulta (DBeaver/Power BI)
+	malpipe publish
 
 recommend: ## Treina/avalia os recomendadores e grava no schema ml
 	malpipe recommend

@@ -133,6 +133,16 @@ Detalhes: [docs/architecture.md](docs/architecture.md) · limites e termos de us
 - Avaliação offline com holdout: precision/recall/NDCG@10, **cobertura de catálogo** e **novidade** — e concordância dos vizinhos com as recomendações votadas pela comunidade no Jikan.
 - Recomendações para a sua lista com explicação: *"porque você deu nota alta para X"*.
 
+**Dashboard (`dashboard/`)** — Streamlit com 9 abas
+- Painel executivo (KPIs + gráficos com texto explicando cada número) e aba **Explorar** com filtros
+  globais (ano, formato, gêneros, audiência), busca e download do recorte em CSV.
+- Pôsteres e links do MAL nas tabelas, raio-X por estúdio, linha do tempo por franquia, temporada em
+  detalhe, perfil pessoal contra a comunidade e aba de **saúde do pipeline**.
+- Conexões curtas e somente leitura: o painel aberto não trava a ingestão.
+
+**Consulta em SQL (DBeaver)** — `malpipe publish` gera uma cópia de consulta independente do banco de
+trabalho e `sql/consultas_dbeaver.sql` traz 28 consultas prontas ([guia](docs/dbeaver.md)).
+
 **Engenharia**
 - 27 testes Python (HTTP mockado com `respx`, checkpoint, loaders, recsys) · ruff · GitHub Actions rodando o **pipeline inteiro** (sintético + manami real) a cada push.
 - Gerador de **dados sintéticos no formato exato das APIs**: o projeto roda sem credenciais e o CI é determinístico.
@@ -158,8 +168,10 @@ Detalhes: [docs/architecture.md](docs/architecture.md) · limites e termos de us
 <td><img src="docs/img/my-profile.png" alt="Meu perfil vs MAL"></td>
 <td><img src="docs/img/studios.png" alt="Estúdios"></td>
 </tr><tr>
-<td><img src="docs/img/polarization.png" alt="Polarização"></td>
-<td><img src="docs/img/recommendations.png" alt="Recomendações"></td>
+<td><img src="docs/img/trends.png" alt="Tendências"></td>
+<td><img src="docs/img/franchises.png" alt="Franquias"></td>
+</tr><tr>
+<td colspan="2"><img src="docs/img/recommendations.png" alt="Recomendações"></td>
 </tr></table>
 
 ## Como rodar
@@ -196,8 +208,8 @@ Rotina semanal: `malpipe incremental && make build` — agendamento no Windows e
 ### Comandos
 
 ```
-malpipe init | status | sample | manami | discover | mal-details | jikan | my-list | kaggle | incremental | recommend | dbt
-make demo | ingest | build | dbt-build | dbt-docs | recommend | dashboard | test | lint
+malpipe init | status | sample | manami | discover | mal-details | jikan | my-list | kaggle | incremental | recommend | dbt | publish | export
+make demo | ingest | build | publish | dbt-build | dbt-docs | recommend | dashboard | test | lint
 ```
 
 ## Estrutura
@@ -215,7 +227,8 @@ make demo | ingest | build | dbt-build | dbt-docs | recommend | dashboard | test
 │   ├── models/marts/core/  #   dims, bridges, fatos (incremental), contracts
 │   ├── models/marts/analytics/  # marts por pergunta + exposures
 │   ├── snapshots/  tests/  macros/  analyses/
-├── dashboard/app.py        # Streamlit
+├── dashboard/              # Streamlit: app.py (9 abas) + lib.py (filtros, formatação, estilo)
+├── sql/                    # 28 consultas prontas para o DBeaver (validadas no CI)
 ├── tests/                  # pytest
 ├── docs/                   # arquitetura, fontes, runbook, ADRs, dicionário de dados
 └── .github/workflows/ci.yml
@@ -226,6 +239,7 @@ make demo | ingest | build | dbt-build | dbt-docs | recommend | dashboard | test
 - [Arquitetura e modelo dimensional](docs/architecture.md)
 - [Fontes, limites e termos de uso](docs/data-sources.md)
 - [Runbook (operação, agendamento, diagnóstico)](docs/runbook.md)
+- [Consultando no DBeaver](docs/dbeaver.md) — cópia de consulta + 28 consultas prontas
 - [Dicionário de dados](docs/data-dictionary.md) — gerado do dbt
 - Decisões: [001 DuckDB](docs/adr/001-duckdb-como-warehouse.md) · [002 Bronze append-only](docs/adr/002-bronze-append-only-json.md) · [003 Métricas de qualidade](docs/adr/003-metricas-de-qualidade.md) · [004 Recomendador](docs/adr/004-recomendador.md)
 - Lineage interativo: `make dbt-docs`

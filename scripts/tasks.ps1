@@ -26,13 +26,14 @@ switch ($Task) {
         Write-Host "Pronto. Para abrir o painel: `$env:DUCKDB_PATH='$env:DUCKDB_PATH'; streamlit run dashboard/app.py"
     }
     "ingest"    { malpipe incremental }
-    "build"     { Invoke-Dbt @("build"); malpipe recommend }
+    "build"     { Invoke-Dbt @("build"); malpipe recommend; malpipe publish }
+    "publish"   { malpipe publish }
     "dbt-docs"  { Invoke-Dbt @("docs", "generate"); Invoke-Dbt @("docs", "serve", "--port", "8081") }
     "recommend" { malpipe recommend }
     "dashboard" { streamlit run (Join-Path $Root "dashboard\app.py") }
     "test"      { pytest }
     "status"    { malpipe status }
     default {
-        Write-Host "Tarefas: install, demo, ingest, build, dbt-docs, recommend, dashboard, test, status"
+        Write-Host "Tarefas: install, demo, ingest, build, publish, dbt-docs, recommend, dashboard, test, status"
     }
 }
