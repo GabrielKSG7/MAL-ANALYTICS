@@ -306,6 +306,69 @@ class Warehouse:
         """IDs com detalhe do MAL extraído com sucesso (base para o enriquecimento via Jikan)."""
         return "SELECT DISTINCT mal_id FROM bronze.mal_anime WHERE http_status = 200"
 
+    def merge_from(self, other_path: str | Path) -> list[tuple[str, int]]:
+        """Copia para este banco o bronze (e o meta.runs) de outro arquivo DuckDB.
+
+        A unidade de deduplicação é a execução (`run_id`): uma execução que já existe aqui não é
+        copiada de novo, então rodar duas vezes não duplica nada. Só entram as colunas que existem nos
+        dois lados, o que permite trazer dados de um banco criado por uma versão mais antiga.
+        """
+        other = Path(other_path).resolve()
+        if not other.exists():
+            raise FileNotFoundError(other)
+        if other == self.path.resolve():
+            raise ValueError("o banco de origem é o próprio banco de destino")
+        copied: list[tuple[str, int]] = []
+        with self.lock:
+            src = str(other).replace("'", "''")
+            self.con.execute(f"ATTACH '{src}' AS merge_src (READ_ONLY)")
+            try:
+                for schema, table in self._mergeable_tables():
+                    cols = self._common_columns(schema, table)
+                    if "run_id" not in cols:
+                        continue
+                    col_list = ", ".join(cols)
+                    n = self.con.execute(
+                        f"""INSERT INTO {schema}.{table} ({col_list})
+                            SELECT {col_list} FROM merge_src.{schema}.{table}
+                            WHERE run_id NOT IN (SELECT DISTINCT run_id FROM {schema}.{table})"""
+                    ).fetchone()[0]
+                    copied.append((f"{schema}.{table}", n))
+            finally:
+                self.con.execute("DETACH merge_src")
+        return copied
+
+    def _mergeable_tables(self) -> list[tuple[str, str]]:
+        rows = self.con.execute(
+            """SELECT table_schema, table_name FROM information_schema.tables
+               WHERE table_catalog = 'merge_src' AND table_schema IN ('bronze', 'meta')
+               ORDER BY table_schema = 'meta', table_name"""
+        ).fetchall()
+        local = {
+            (s, t)
+            for s, t in self.con.execute(
+                "SELECT table_schema, table_name FROM information_schema.tables "
+                "WHERE table_catalog = current_database()"
+            ).fetchall()
+        }
+        # meta.runs por último: só registra as execuções depois que os dados delas entraram
+        return sorted((r for r in rows if r in local), key=lambda r: (r[0] == "meta", r[1]))
+
+    def _common_columns(self, schema: str, table: str) -> list[str]:
+        def cols(catalog_filter: str) -> list[str]:
+            return [
+                r[0]
+                for r in self.con.execute(
+                    f"""SELECT column_name FROM information_schema.columns
+                        WHERE {catalog_filter} AND table_schema = ? AND table_name = ?
+                        ORDER BY ordinal_position""",
+                    [schema, table],
+                ).fetchall()
+            ]
+
+        theirs = set(cols("table_catalog = 'merge_src'"))
+        return [c for c in cols("table_catalog = current_database()") if c in theirs]
+
     def table_counts(self) -> list[tuple[str, int]]:
         tables = self.con.execute(
             "SELECT table_schema || '.' || table_name FROM information_schema.tables "

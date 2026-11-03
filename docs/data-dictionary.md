@@ -19,7 +19,7 @@
 | `profile_url` | VARCHAR |  |
 | `character_role` | VARCHAR |  |
 
-### `staging.stg_anilist__media` · view
+### `staging.stg_anilist__media` · table
 
 | coluna | tipo | descrição |
 |---|---|---|
@@ -34,7 +34,10 @@
 | `country_of_origin` | VARCHAR |  |
 | `cast_truncated` | BOOLEAN |  |
 | `extracted_at` | TIMESTAMP |  |
-| `_payload` | JSON |  |
+| `_characters` | STRUCT("role" VARCHAR, node STRUCT(id INTEGER, "name" STRUCT("full" VARCHAR, native VARCHAR), gender VARCHAR, age VARCHAR, favourites INTEGER, image STRUCT(medium VARCHAR), siteUrl VARCHAR), voiceActorRoles STRUCT(roleNotes VARCHAR, dubGroup VARCHAR, voiceActor STRUCT(id INTEGER, "name" STRUCT("full" VARCHAR, native VARCHAR), languageV2 VARCHAR, gender VARCHAR, favourites INTEGER, primaryOccupations VARCHAR[], homeTown VARCHAR, yearsActive INTEGER[], dateOfBirth STRUCT("year" INTEGER, "month" INTEGER, "day" INTEGER), dateOfDeath STRUCT("year" INTEGER, "month" INTEGER, "day" INTEGER), image STRUCT(medium VARCHAR), siteUrl VARCHAR))[])[] |  |
+| `_staff` | STRUCT("role" VARCHAR, node STRUCT(id INTEGER, "name" STRUCT("full" VARCHAR, native VARCHAR), languageV2 VARCHAR, gender VARCHAR, favourites INTEGER, primaryOccupations VARCHAR[], homeTown VARCHAR, yearsActive INTEGER[], dateOfBirth STRUCT("year" INTEGER, "month" INTEGER, "day" INTEGER), dateOfDeath STRUCT("year" INTEGER, "month" INTEGER, "day" INTEGER), image STRUCT(medium VARCHAR), siteUrl VARCHAR))[] |  |
+| `_studios` | STRUCT(isMain BOOLEAN, node STRUCT(id INTEGER, "name" VARCHAR, isAnimationStudio BOOLEAN, favourites INTEGER, siteUrl VARCHAR))[] |  |
+| `_tags` | STRUCT("name" VARCHAR, rank INTEGER, category VARCHAR, isMediaSpoiler BOOLEAN)[] |  |
 
 ### `staging.stg_anilist__people` · view
 
@@ -301,7 +304,7 @@ Testes: `unique_combination`
 | `studio_name` | VARCHAR |  |
 | `is_main_studio` | BOOLEAN |  |
 
-### `staging.stg_mal__manga` · view
+### `staging.stg_mal__manga` · table
 
 | coluna | tipo | descrição |
 |---|---|---|
@@ -324,7 +327,10 @@ Testes: `unique_combination`
 | `num_scoring_users` | BIGINT |  |
 | `nsfw_level` | VARCHAR |  |
 | `extracted_at` | TIMESTAMP |  |
-| `_payload` | JSON |  |
+| `_genres` | STRUCT(id INTEGER, "name" VARCHAR)[] |  |
+| `_authors` | STRUCT(node STRUCT(id INTEGER, first_name VARCHAR, last_name VARCHAR), "role" VARCHAR)[] |  |
+| `_serialization` | STRUCT(node STRUCT(id INTEGER, "name" VARCHAR))[] |  |
+| `_related_anime` | STRUCT(node STRUCT(id INTEGER), relation_type VARCHAR)[] |  |
 
 ### `staging.stg_mal__manga_anime_links` · view
 

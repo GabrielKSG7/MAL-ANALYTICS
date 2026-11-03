@@ -31,6 +31,14 @@ Usar APIs oficiais, cada uma no que faz melhor, todas ligadas pelo `mal_id`:
 - **Papéis normalizados no dbt** (`staff_role_group`): "Director", "Chief Director", "Episode Director (ep 3)"
   etc. viram 13 grupos estáveis, testados com `accepted_values`.
 
+- **JSON lido uma vez** (adendo pós-carga real): a primeira versão extraía cada coluna com `->>` e
+  deixava o `_payload` para os modelos filhos reabrirem. Com 86 mil mangás o build estourou 4 GB
+  (`Out of Memory`). Agora `stg_mal__manga` e `stg_anilist__media` são tabelas que fazem um único
+  `from_json` com o tipo de todos os campos usados e entregam listas tipadas aos filhos; a deduplicação
+  (`latest_success`) agrega só `(id, max(extracted_at))` e filtra por junção, sem janela sobre os
+  payloads. Medido com dados sintéticos do mesmo tamanho: mangá de >1,2 GB para <300 MB; AniList com
+  1 GB de JSON roda em 1 GB.
+
 ## Consequências
 
 - Novos modelos: `bridge_anime_staff`, `fct_episode`, `dim_manga`, `bridge_manga_anime`,

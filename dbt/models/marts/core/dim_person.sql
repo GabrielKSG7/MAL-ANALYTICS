@@ -10,11 +10,24 @@ with voiced as (
     group by person_id
 ),
 
+role_counts as (
+    select person_id, role_group, count(distinct mal_id) as n
+    from {{ ref('stg_anilist__staff_roles') }}
+    where role_group <> 'Outros'
+    group by all
+),
+
+main_role as (
+    -- função mais frequente; empate desempatado pelo nome, para o resultado ser determinístico
+    select person_id, first(role_group order by n desc, role_group) as main_role_group
+    from role_counts
+    group by person_id
+),
+
 worked as (
     select person_id,
            count(distinct mal_id)                                        as num_anime_staff,
-           count(distinct mal_id) filter (where role_group = 'Direção')  as num_anime_directed,
-           mode(role_group) filter (where role_group <> 'Outros')        as main_role_group
+           count(distinct mal_id) filter (where role_group = 'Direção')  as num_anime_directed
     from {{ ref('stg_anilist__staff_roles') }}
     group by person_id
 )
@@ -36,9 +49,10 @@ select
     coalesce(v.num_main_roles, 0)       as num_main_roles,
     coalesce(w.num_anime_staff, 0)      as num_anime_staff,
     coalesce(w.num_anime_directed, 0)   as num_anime_directed,
-    w.main_role_group,
+    mr.main_role_group,
     p.image_url,
     p.profile_url
 from {{ ref('stg_anilist__people') }} p
 left join voiced v using (person_id)
 left join worked w using (person_id)
+left join main_role mr using (person_id)

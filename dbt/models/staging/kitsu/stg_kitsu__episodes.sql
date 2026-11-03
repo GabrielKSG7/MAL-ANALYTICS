@@ -1,9 +1,7 @@
 -- Episódios (Kitsu), extração mais recente por anime.
 with latest as (
     select mal_id, kitsu_id, payload, extracted_at
-    from {{ source('bronze', 'kitsu_episodes') }}
-    where http_status = 200 and payload is not null
-    {{ latest_by('mal_id') }}
+    from {{ latest_success(source('bronze', 'kitsu_episodes')) }} as src
 ),
 
 eps as (

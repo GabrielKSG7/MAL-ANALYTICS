@@ -123,3 +123,27 @@ def test_kitsu_candidates_only_series_with_mapping(wh):
          (3, 200, '{"media_type": "tv"}', None, utcnow(), "r")],
     )  # fmt: skip
     assert wh.kitsu_candidates() == {1: 11}
+
+
+def test_merge_copies_bronze_once_and_tolerates_older_schema(tmp_path, wh):
+    from malpipe.warehouse import Warehouse, utcnow
+
+    other = Warehouse(tmp_path / "old.duckdb")
+    with other.run("mal-details") as run:
+        other.insert_rows("bronze.mal_anime", ("mal_id", "http_status", "payload", "error", "extracted_at", "run_id"),
+                          [(i, 200, f'{{"id": {i}}}', None, utcnow(), run.run_id) for i in range(1, 4)])  # fmt: skip
+    # banco "antigo": sem as tabelas do ecossistema
+    other.con.execute("DROP TABLE bronze.anilist_media")
+    other.close()
+
+    with wh.run("manga") as run:
+        wh.insert_rows("bronze.mal_manga", ("mal_id", "http_status", "payload", "error", "extracted_at", "run_id"),
+                       [(9, 200, "{}", None, utcnow(), run.run_id)])  # fmt: skip
+
+    first = dict(wh.merge_from(tmp_path / "old.duckdb"))
+    assert first["bronze.mal_anime"] == 3 and first["meta.runs"] == 1
+    assert dict(wh.merge_from(tmp_path / "old.duckdb"))["bronze.mal_anime"] == 0  # idempotente
+    assert wh.con.execute("SELECT count(*) FROM bronze.mal_anime").fetchone()[0] == 3
+    assert wh.con.execute("SELECT count(*) FROM bronze.mal_manga").fetchone()[0] == 1  # o que já havia continua
+    with pytest.raises(ValueError):
+        wh.merge_from(wh.path)

@@ -3,7 +3,7 @@
 with edges as (
     select
         mal_id,
-        unnest(from_json(_payload->'$.staff', '[{"role": "VARCHAR", "node": {{ anilist_person_type() }}}]')) as e
+        unnest(_staff) as e
     from {{ ref('stg_anilist__media') }}
 )
 

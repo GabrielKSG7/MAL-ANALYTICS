@@ -2,9 +2,7 @@
 with edges as (
     select
         mal_id,
-        unnest(from_json(_payload->'$.studios.edges',
-            '[{"isMain": "BOOLEAN", "node": {"id": "INTEGER", "name": "VARCHAR", "isAnimationStudio": "BOOLEAN",
-               "favourites": "INTEGER", "siteUrl": "VARCHAR"}}]')) as e
+        unnest(_studios) as e
     from {{ ref('stg_anilist__media') }}
 )
 

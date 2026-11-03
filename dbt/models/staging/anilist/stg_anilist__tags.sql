@@ -2,8 +2,7 @@
 with t as (
     select
         mal_id,
-        unnest(from_json(_payload->'$.tags',
-            '[{"name": "VARCHAR", "rank": "INTEGER", "category": "VARCHAR", "isMediaSpoiler": "BOOLEAN"}]')) as tag
+        unnest(_tags) as tag
     from {{ ref('stg_anilist__media') }}
 )
 

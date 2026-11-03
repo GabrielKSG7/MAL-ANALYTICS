@@ -7,3 +7,5 @@ mal_analytics:
       threads: 4
       settings:
         memory_limit: "{{ env_var('DUCKDB_MEMORY_LIMIT', '4GB') }}"
+        # tabelas grandes (mangá, AniList) não precisam manter a ordem de inserção: menos memória
+        preserve_insertion_order: false

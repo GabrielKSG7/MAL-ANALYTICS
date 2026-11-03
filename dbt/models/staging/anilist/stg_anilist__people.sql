@@ -3,14 +3,13 @@
 with va as (
     select unnest(e.voiceActorRoles).voiceActor as p
     from (
-        select unnest(from_json(_payload->'$.characters',
-            '[{"voiceActorRoles": [{"voiceActor": {{ anilist_person_type() }}}]}]')) as e
+        select unnest(_characters) as e
         from {{ ref('stg_anilist__media') }}
     )
 ),
 
 staff as (
-    select unnest(from_json(_payload->'$.staff', '[{"node": {{ anilist_person_type() }}}]')).node as p
+    select unnest(_staff).node as p
     from {{ ref('stg_anilist__media') }}
 ),
 

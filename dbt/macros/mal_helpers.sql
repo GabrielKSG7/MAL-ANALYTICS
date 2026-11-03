@@ -69,3 +69,43 @@
         else 'Outros'
     end
 {%- endmacro %}
+
+{#
+  Linhas da extração mais recente (com sucesso) de cada ID — versão econômica em memória do
+  `latest_by`. Em vez de uma janela que precisa segurar todos os payloads JSON (centenas de MB),
+  agrega só (id, max(extracted_at)) e filtra o bronze por junção. Uso:
+      from {{ latest_success(source('bronze', 'mal_manga')) }} as src
+#}
+{% macro latest_success(relation, key='mal_id') -%}
+(
+    select s.*
+    from {{ relation }} s
+    join (
+        select {{ key }}, max(extracted_at) as _latest_at
+        from {{ relation }}
+        where http_status = 200 and payload is not null
+        group by {{ key }}
+    ) l on l.{{ key }} = s.{{ key }} and l._latest_at = s.extracted_at
+    where s.http_status = 200 and s.payload is not null
+)
+{%- endmacro %}
+
+{# Tipo do payload da AniList, lido de uma vez só em stg_anilist__media. #}
+{% macro anilist_media_type() -%}
+{
+    "id": "INTEGER",
+    "title": {"romaji": "VARCHAR", "english": "VARCHAR", "native": "VARCHAR"},
+    "favourites": "INTEGER", "averageScore": "INTEGER", "popularity": "INTEGER",
+    "countryOfOrigin": "VARCHAR", "truncated": "BOOLEAN",
+    "characters": [{
+        "role": "VARCHAR",
+        "node": {"id": "INTEGER", "name": {"full": "VARCHAR", "native": "VARCHAR"}, "gender": "VARCHAR",
+                 "age": "VARCHAR", "favourites": "INTEGER", "image": {"medium": "VARCHAR"}, "siteUrl": "VARCHAR"},
+        "voiceActorRoles": [{"roleNotes": "VARCHAR", "dubGroup": "VARCHAR", "voiceActor": {{ anilist_person_type() }}}]
+    }],
+    "staff": [{"role": "VARCHAR", "node": {{ anilist_person_type() }}}],
+    "studios": {"edges": [{"isMain": "BOOLEAN", "node": {"id": "INTEGER", "name": "VARCHAR",
+                           "isAnimationStudio": "BOOLEAN", "favourites": "INTEGER", "siteUrl": "VARCHAR"}}]},
+    "tags": [{"name": "VARCHAR", "rank": "INTEGER", "category": "VARCHAR", "isMediaSpoiler": "BOOLEAN"}]
+}
+{%- endmacro %}

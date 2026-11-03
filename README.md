@@ -131,6 +131,7 @@ Detalhes: [docs/architecture.md](docs/architecture.md) · limites e termos de us
 - **Staging** parseia o JSON (`->>`, `from_json`, `unnest`), trata contadores que chegam como string, datas parciais do MAL (`"2015-04"`) e aplica "última extração vence".
 - **Franquias por grafo**: componentes conexos das relações sequel/prequel/side story via **CTE recursiva**.
 - **Nota bayesiana** (fórmula IMDb) e **índice de polarização** a partir da distribuição de votos ([ADR 003](docs/adr/003-metricas-de-qualidade.md)).
+- **Escala**: JSONs grandes (mangá, AniList com elenco e staff) são lidos uma única vez com `from_json` tipado e a deduplicação usa junção por `max(extracted_at)` em vez de janela — o modelo de mangá caiu de >1,2 GB para <300 MB de memória.
 - **Papéis de staff normalizados** por regex ("Chief Director", "Episode Director (ep 3)"…) em 13 grupos testados; elenco por idioma; episódios com intervalo entre exibições (`lag`).
 - **Fato incremental** (`fct_anime_metrics_snapshot`, `delete+insert`) que vira série temporal semana a semana.
 - **Snapshot SCD2** de status de exibição/episódios; **contracts** em dimensões; **exposures** ligando dashboard e recomendador ao lineage; **source freshness**.
@@ -226,7 +227,7 @@ Rotina semanal: `malpipe incremental && make build` — agendamento no Windows e
 
 ```
 malpipe init | status | sample | manami | discover | mal-details | jikan | my-list | kaggle | incremental
-        manga | anilist | kitsu | ecosystem | check-sources | recommend | dbt | publish | export
+        manga | anilist | kitsu | ecosystem | check-sources | merge | recommend | dbt | publish | export
 make demo | ingest | ecosystem | sources | build | publish | dbt-build | dbt-docs | recommend | dashboard | test | lint
 ```
 

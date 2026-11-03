@@ -38,6 +38,7 @@ make build                        # ou .\scripts\tasks.ps1 build
 - Pode interromper com Ctrl+C a qualquer momento: cada fonte retoma de onde parou.
 - Rodar uma fonte só: `malpipe ecosystem --only anilist` (ou `malpipe manga`, `malpipe anilist`, `malpipe kitsu`).
 - A AniList prioriza os animes da sua lista; o Kitsu precisa do `malpipe manami` já feito (é dele o mapa de IDs).
+- Juntar bancos: `malpipe merge C:\caminho\outro.duckdb` copia o bronze de outro arquivo para o atual, sem duplicar execuções (seguro rodar mais de uma vez).
 - Atualização: depois de `REFRESH_DAYS` (mangá/AniList) ou 4× isso (episódios), os itens voltam para a fila.
 
 > Dica: o Jikan é o gargalo (3 endpoints × 30 mil IDs). Comece só com `statistics`, ou suba uma
@@ -81,6 +82,8 @@ malpipe incremental && make build
 | Kitsu com 0 pendentes | Falta o mapa de IDs | Rode `malpipe manami` e depois `malpipe kitsu`. |
 | `pip install` cai em "Defaulting to user installation" e falha com `OSError: No such file` num caminho longo | venv não ativado — o pip instalou no Python da Microsoft Store, cujo caminho estoura o limite de 260 caracteres do Windows | `.\.venv\Scripts\Activate.ps1` (o prompt passa a mostrar `(.venv)`) e rode o `pip install -e .` de novo. |
 | `git pull` pergunta "Deletion of directory '.git/objects/..' failed. Should I try again?" | O OneDrive está sincronizando a pasta `.git` e trava os arquivos durante a limpeza automática do Git | Responda `n` (o pull já foi aplicado) e rode uma vez `git config gc.auto 0`. Melhor ainda: deixar o repositório fora do OneDrive. |
+| `Out of Memory Error` no dbt | Modelo grande demais para o `memory_limit` (padrão 4 GB) | Já corrigido para mangá/AniList (JSON lido uma vez só). Se ainda acontecer: `DUCKDB_MEMORY_LIMIT=8GB` no `.env`, ou `malpipe dbt build --threads 1`. |
+| AniList/Kitsu com poucas centenas de animes pendentes | Este banco tem poucos animes com detalhe do MAL (o aviso aparece no log) | `malpipe status` mostra "Animes com detalhe do MAL". Se a carga completa está em outro arquivo: `malpipe merge <outro.duckdb>`; senão, `malpipe mal-details`. Depois rode `malpipe ecosystem` de novo. |
 | Quero reprocessar tudo do zero | — | `dbt build --full-refresh`. O bronze não muda; não há nova chamada às APIs. |
 
 ## Consultas úteis

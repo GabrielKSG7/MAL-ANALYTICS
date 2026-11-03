@@ -2,10 +2,7 @@
 with edges as (
     select
         mal_id,
-        unnest(from_json(_payload->'$.characters',
-            '[{"role": "VARCHAR", "node": {"id": "INTEGER", "name": {"full": "VARCHAR", "native": "VARCHAR"},
-               "gender": "VARCHAR", "age": "VARCHAR", "favourites": "INTEGER", "image": {"medium": "VARCHAR"},
-               "siteUrl": "VARCHAR"}}]')) as e
+        unnest(_characters) as e
     from {{ ref('stg_anilist__media') }}
 )
 

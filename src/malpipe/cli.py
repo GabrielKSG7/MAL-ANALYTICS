@@ -172,7 +172,26 @@ def _run_manga(settings, wh: Warehouse, limit: int | None, rediscover: bool) -> 
         return f"{len(ids):,} mangás · {stats}"
 
 
+def _warn_if_few_anime_details(wh: Warehouse) -> None:
+    """AniList e Kitsu só enriquecem animes que já têm detalhe do MAL — avisa se a base está rala."""
+    with wh.lock:
+        fetched, known = wh.con.execute(
+            f"SELECT (SELECT count(*) FROM ({wh.fetched_mal_ids_sql()})), "
+            f"(SELECT count(*) FROM ({wh.known_mal_ids_sql()}))"
+        ).fetchone()
+    if known and fetched < 0.5 * known:
+        log.warning(
+            "só %s de %s animes conhecidos têm detalhe do MAL neste banco (%s) — AniList e Kitsu ficam "
+            "limitados a eles. Rode `malpipe mal-details` antes, ou `malpipe merge <outro.duckdb>` se a "
+            "carga completa estiver em outro arquivo.",
+            f"{fetched:,}",
+            f"{known:,}",
+            wh.path,
+        )
+
+
 def _run_anilist(settings, wh: Warehouse, limit: int | None) -> str:
+    _warn_if_few_anime_details(wh)
     ids = wh.pending_ids("bronze.anilist_media", settings.refresh_days * 4, wh.fetched_mal_ids_sql(), limit=limit)
     log.info("anilist: %s animes pendentes (~%.1f h)", len(ids), len(ids) / settings.anilist_rps / 3600)
     if not ids:
@@ -477,6 +496,22 @@ def export(
         except duckdb.Error as exc:
             console.print(f"[yellow]pulado[/] {table}: {exc.__class__.__name__}")
     con.close()
+
+
+@app.command("merge")
+def merge(
+    origem: Annotated[Path, typer.Argument(help="Outro arquivo .duckdb cujo bronze será copiado para o banco atual.")],
+) -> None:
+    """Junta o bronze de outro banco a este (sem duplicar execuções). Depois rode o build."""
+    wh = _wh()
+    console.print(f"Copiando de [bold]{origem}[/] para [bold]{wh.path}[/]…")
+    copied = wh.merge_from(origem)
+    t = Table("tabela", "linhas copiadas", title="Merge")
+    for name, n in copied:
+        t.add_row(name, f"{n:,}")
+    console.print(t)
+    wh.close()
+    console.print("Pronto. Rode [bold]malpipe status[/] e depois o build.")
 
 
 @app.command()
