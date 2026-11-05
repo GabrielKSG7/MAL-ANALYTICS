@@ -118,9 +118,39 @@ foi de **24,6 min** (1975–89) para **19,8 min** (2013–16, auge das séries c
 (2017–19). Ressalva: a cobertura do Kitsu despenca a partir de 2020 (125 episódios datados em 2020 contra
 1.952 em 2019), então os anos recentes não entram na conclusão. → `mart_episode_trends`
 
-<sub>Pendentes: mangá × anime (a ligação vem das relações da AniList — `malpipe anilist-relations`),
-polarização (depende do Jikan), "em alta" (depende da 2ª extração semanal) e o recomendador colaborativo
-(depende do Kaggle).</sub>
+### Mangá × anime
+
+> 85.913 mangás, light novels e manhwas do MAL. A ligação com o anime vem das relações da AniList (obra
+> de origem de cada anime), porque o `related_anime` da MAL API não trouxe nenhuma.
+
+**11. O anime raramente supera a obra original.** Em **2.896 animes com uma única obra de origem**
+(1.944 mangás e novels), o anime teve nota **maior** que o original em só **21%** dos casos; a diferença
+mediana é de **−0,33** ponto, e um terço (34%) fica num empate técnico (±0,25).
+- **Light novel é o original mais difícil de superar**: mediana de −0,50 e só 11% de animes melhores
+  (mangá: −0,30 e 23%). Em manhwa, só 3 de 39 adaptações superaram o original.
+- **Série de TV adapta melhor** (−0,32) que filme (−0,53) e ONA (−0,67).
+- Entre estúdios com 30+ adaptações, os que ficam mais perto do original são **Bones** (−0,13),
+  **Production I.G** (−0,18), **Doga Kobo** (−0,20), **Studio Pierrot** (−0,21) e **MAPPA** (−0,23); os que
+  mais se afastam, **Shin-Ei** (−0,59), **Lerche** (−0,54), **Gonzo** (−0,51) e **Studio Deen** (−0,48).
+- Maiores viradas a favor do anime: *Usagi Drop* (+1,37, Production I.G), *Kurenai no Buta* sobre
+  *Hikoutei Jidai* (+1,29, Ghibli) e *Bleach: Sennen Kessen-hen* (8,97 contra 7,93 do mangá). As maiores
+  quedas: *One Punch Man 3* (4,77 contra 8,68), *Berserk* de 2016 (6,34 contra 9,46) e a 2ª temporada de
+  *Yakusoku no Neverland* (5,23 contra 8,14).
+- A espera dobrou: o intervalo mediano entre o início da obra e o anime foi de **3 anos** (estreias até
+  1999) para **6 anos** (2021 em diante).
+
+Ressalva: as notas de mangá vêm de outro público — leitores, em menor número e mais engajados —, então
+parte da diferença é de quem vota, não só de qualidade. → `mart_adaptation_scores`
+
+**12. O que ainda não virou anime.** São cerca de **1,6 mil obras** com nota ≥ 7,5 e 1.000+ votos sem
+nenhuma ligação com anime. As mais populares: *Oyasumi Punpun* (532 mil membros), *Vagabond* (a de maior
+nota, **9,27**), *20th Century Boys*, *Fire Punch* e *JoJolion*. Alguns autores aparecem duas vezes no
+topo — **Takehiko Inoue** (*Vagabond* e *Real*, 8,98), **Tatsuki Fujimoto** (*Fire Punch* e *Sayonara
+Eri*), **Inio Asano** (*Punpun* e *Solanin*) e **Naoki Urasawa** (*20th* e *21st Century Boys*) —, e
+**1 em cada 5 é manhwa**. → `mart_manga_adaptation_gap`
+
+<sub>Pendentes: polarização (depende do Jikan), "em alta" (depende da 2ª extração semanal) e o
+recomendador colaborativo (depende do Kaggle).</sub>
 
 ## Arquitetura
 
@@ -304,7 +334,7 @@ make demo | ingest | ecosystem | sources | build | publish | dbt-build | dbt-doc
 - [x] Primeira carga real completa e uma seção de achados neste README
 - [ ] Polarização com Jikan, recomendador colaborativo com Kaggle e série temporal semanal
 - [x] Ecossistema: mangá × adaptação, elenco e staff (AniList), episódios (Kitsu)
-- [ ] Achados do ecossistema com os dados reais nesta página
+- [x] Achados do ecossistema com os dados reais nesta página
 - [ ] ALS para feedback implícito e embeddings de sinopse no modelo de conteúdo
 - [ ] Exportar marts em Parquet e publicar o dashboard
 

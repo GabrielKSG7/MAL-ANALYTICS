@@ -1,4 +1,6 @@
 -- Obra original × adaptação: a nota do anime fica acima ou abaixo da do mangá/LN?
+-- Um anime pode ter várias obras de origem na AniList (One Piece → o mangá e one-shots como *Wanted!*);
+-- a comparação usa só a principal: a mais popular entre elas.
 select
     m.manga_id,
     m.title                                   as manga_title,
@@ -18,3 +20,4 @@ join {{ ref('dim_anime') }} a using (mal_id)
 where b.relation_type = 'adaptation'
   and m.mean_score is not null and a.mean_score is not null
   and a.media_type in ('tv', 'movie', 'ona')
+qualify row_number() over (partition by a.mal_id order by m.num_list_users desc nulls last, m.manga_id) = 1

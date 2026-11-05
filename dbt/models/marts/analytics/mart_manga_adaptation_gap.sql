@@ -1,6 +1,7 @@
 {#
   "Por que isso ainda não virou anime?" — obras populares e bem avaliadas sem adaptação.
-  Considera mangá, light novel, manhwa, manhua e novel com volume mínimo de votos.
+  Considera mangá, light novel, manhwa, manhua e novel com volume mínimo de votos. Fica de fora quem tem
+  QUALQUER ligação com anime — inclusive o mangá derivado de um anime (ex.: o de Evangelion).
 #}
 select
     manga_id,
@@ -20,6 +21,7 @@ select
     mal_url
 from {{ ref('dim_manga') }}
 where not has_anime_adaptation
+  and manga_id not in (select manga_id from {{ ref('int_manga__anime_links') }})
   and mean_score >= 7.5
   and num_scoring_users >= 1000
   and media_type in ('manga', 'light_novel', 'manhwa', 'manhua', 'novel')
