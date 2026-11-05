@@ -37,7 +37,9 @@ Usar APIs oficiais, cada uma no que faz melhor, todas ligadas pelo `mal_id`:
   `from_json` com o tipo de todos os campos usados e entregam listas tipadas aos filhos; a deduplicação
   (`latest_success`) agrega só `(id, max(extracted_at))` e filtra por junção, sem janela sobre os
   payloads. Medido com dados sintéticos do mesmo tamanho: mangá de >1,2 GB para <300 MB; AniList com
-  1 GB de JSON roda em 1 GB.
+  1 GB de JSON roda em 1 GB. O mesmo padrão foi aplicado depois a `stg_mal__anime_extractions`
+  (~40 `->>` por linha), que estourava a memória no `publish` com 30 mil animes. Teste em escala real
+  (30 mil animes, 86 mil mangás, 30 mil AniList): build completo em 36 s e publish em 8 s com 1,5 GB.
 
 ## Consequências
 

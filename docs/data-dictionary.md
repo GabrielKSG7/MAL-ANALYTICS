@@ -219,7 +219,7 @@ Testes: `accepted_values(airing_status)`, `accepted_values(media_type)`, `assert
 | `mal_created_at` | TIMESTAMP WITH TIME ZONE |  |
 | `mal_updated_at` | TIMESTAMP WITH TIME ZONE |  |
 
-### `staging.stg_mal__anime_extractions` · view
+### `staging.stg_mal__anime_extractions` · table
 
 Todas as extrações bem-sucedidas de /anime/{id}, tipadas. Base do histórico de métricas.
 

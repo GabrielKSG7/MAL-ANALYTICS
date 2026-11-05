@@ -29,7 +29,7 @@ select
     max(e.season_year)                                                      as last_year,
     round(avg(e.mean_score), 3)                                             as avg_score,
     max(e.mean_score)                                                       as best_score,
-    arg_max(e.title, e.mean_score)                                          as best_entry,
+    arg_max(e.title, {'s': e.mean_score, 'm': e.num_list_users, 't': e.title}) as best_entry,
     any_value(t.first_tv_title)                                             as first_tv_entry,
     any_value(t.first_tv_score)                                             as first_entry_score,
     any_value(t.latest_tv_title)                                            as latest_tv_entry,

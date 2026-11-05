@@ -24,7 +24,7 @@ agg as (
         stddev_samp(mean_score)                                               as score_stddev,
         avg(case when mean_score >= 8 then 1.0 else 0.0 end)                  as share_titles_8_plus,
         sum(num_list_users)                                                   as total_members,
-        arg_max(title, weighted_score)                                        as best_title,
+        arg_max(title, {'s': weighted_score, 't': title})                   as best_title,
         max(weighted_score)                                                   as best_weighted_score,
         arg_min(title, weighted_score)                                        as worst_title,
         avg(case when is_sequel then 1.0 else 0.0 end)                        as share_sequels,

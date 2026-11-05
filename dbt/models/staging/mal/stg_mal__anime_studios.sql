@@ -1,5 +1,5 @@
 with latest as (
-    select mal_id, _payload as payload
+    select mal_id, _studios
     from {{ ref('stg_mal__anime_extractions') }}
     {{ latest_by('mal_id') }}
 ),
@@ -8,10 +8,10 @@ exploded as (
     select
         mal_id,
         unnest(
-            from_json(payload->'$.studios', '[{"id": "INTEGER", "name": "VARCHAR"}]')
+            _studios
         ) as studio,
         generate_subscripts(
-            from_json(payload->'$.studios', '[{"id": "INTEGER", "name": "VARCHAR"}]'), 1
+            _studios, 1
         ) as studio_position
     from latest
 )

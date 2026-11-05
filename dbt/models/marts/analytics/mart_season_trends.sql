@@ -15,7 +15,7 @@ select
     count(mean_score)                                                           as num_scored,
     round(avg(mean_score), 3)                                                   as avg_score,
     round(median(mean_score), 3)                                                as median_score,
-    arg_max(title, weighted_score)                                              as top_title,
+    arg_max(title, {'s': weighted_score, 't': title})                         as top_title,
     max(mean_score)                                                             as top_score,
     arg_max(title, num_list_users)                                              as most_popular_title,
     sum(num_list_users)                                                         as total_members,

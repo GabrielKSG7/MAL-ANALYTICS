@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from datetime import date
 from pathlib import Path
 from typing import Annotated
@@ -404,6 +405,10 @@ def publish(
     started = time.monotonic()
 
     con = duckdb.connect(str(tmp))
+    # cópia grande (dezenas de tabelas, algumas com 100k+ linhas): sem ordem de inserção e com o mesmo
+    # limite de memória do dbt — o DuckDB derrama para disco em vez de falhar
+    con.execute("SET preserve_insertion_order = false")
+    con.execute(f"SET memory_limit = '{os.getenv('DUCKDB_MEMORY_LIMIT', '4GB')}'")
     con.execute(f"ATTACH '{src.as_posix()}' AS src (READ_ONLY)")
     schemas = [
         r[0]
@@ -423,8 +428,22 @@ def publish(
             [schema],
         ).fetchall()
         for name, _kind in objects:
+            # colunas técnicas (`_payload`, listas `_genres`…) ficam de fora: não servem para relatório e
+            # são as mais pesadas
+            cols = [
+                r[0]
+                for r in con.execute(
+                    "SELECT column_name FROM information_schema.columns WHERE table_catalog = 'src' "
+                    "AND table_schema = ? AND table_name = ? ORDER BY ordinal_position",
+                    [schema, name],
+                ).fetchall()
+                if not r[0].startswith("_")
+            ]
+            col_list = ", ".join(f'"{c}"' for c in cols)
             # views viram tabelas: a cópia não depende de nada do banco original
-            con.execute(f'CREATE OR REPLACE TABLE "{schema}"."{name}" AS SELECT * FROM src."{schema}"."{name}"')
+            con.execute(
+                f'CREATE OR REPLACE TABLE "{schema}"."{name}" AS SELECT {col_list} FROM src."{schema}"."{name}"'
+            )
             copied += 1
         console.print(f"  {schema}: {len(objects)} objetos")
     con.execute("DETACH src")

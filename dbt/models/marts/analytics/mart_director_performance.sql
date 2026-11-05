@@ -21,8 +21,8 @@ select
     round(stddev_samp(w.mean_score), 3)                 as score_stddev,
     round(sum(w.weighted_score * w.num_list_users) / nullif(sum(w.num_list_users), 0), 3) as members_weighted_score,
     sum(w.num_list_users)                               as total_members,
-    arg_max(w.title, w.weighted_score)                  as best_title,
-    max(w.mean_score)                                   as best_score,
+    arg_max(w.title, {'s': w.weighted_score, 't': w.title}) as best_title,
+    arg_max(w.mean_score, {'s': w.weighted_score, 't': w.title}) as best_score,  -- nota da melhor obra
     mode(w.main_studio_name)                            as usual_studio,
     min(w.season_year)                                  as first_year,
     max(w.season_year)                                  as last_year,

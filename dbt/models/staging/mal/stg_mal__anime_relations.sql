@@ -1,5 +1,5 @@
 with latest as (
-    select mal_id, _payload as payload
+    select mal_id, _related_anime
     from {{ ref('stg_mal__anime_extractions') }}
     {{ latest_by('mal_id') }}
 ),
@@ -8,10 +8,7 @@ exploded as (
     select
         mal_id,
         unnest(
-            from_json(
-                payload->'$.related_anime',
-                '[{"node": {"id": "INTEGER", "title": "VARCHAR"}, "relation_type": "VARCHAR"}]'
-            )
+            _related_anime
         ) as rel
     from latest
 )
