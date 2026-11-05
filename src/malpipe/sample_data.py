@@ -487,6 +487,7 @@ def generate_ecosystem(wh: Warehouse, run: RunContext, catalog: list[Anime], now
     for a in catalog:
         first_of_franchise.setdefault(a.franchise, a)
     adapted = list(first_of_franchise.values())
+    source_of_franchise: dict[int, int] = {}
     for i in range(int(len(adapted) * 1.6)):
         manga_id += int(rng.integers(1, 30))
         source = adapted[i] if i < len(adapted) and adapted[i].source in ("manga", "light_novel", "web_manga") else None
@@ -508,16 +509,56 @@ def generate_ecosystem(wh: Warehouse, run: RunContext, catalog: list[Anime], now
             "authors": [{"node": {"id": author[0], "first_name": author[1], "last_name": author[2]},
                          "role": "Story & Art"}],
             "serialization": [{"node": {"id": 500 + i % 5, "name": MAGAZINES[i % 5]}}],
+            # a MAL API real devolve `related_anime` vazio para mangá; aqui só metade traz a ligação,
+            # o resto vem das relações da AniList (bronze.anilist_relations), como nos dados reais
             "related_anime": ([{"node": {"id": source.mal_id, "title": source.title}, "relation_type": "adaptation"}]
-                              if source else []),
+                              if source and i % 2 == 0 else []),
             "related_manga": [],
         }  # fmt: skip
         disc.append((manga_id, "ranking:all", now, run.run_id))
         details.append((manga_id, 200, to_json(payload), None, now, run.run_id))
+        if source:
+            source_of_franchise[source.franchise] = manga_id
     counts["mal_manga_discovery"] = wh.insert_rows(
         "bronze.mal_manga_discovery", ("mal_id", "discovered_via", "extracted_at", "run_id"), disc
     )
     counts["mal_manga"] = wh.insert_rows(
         "bronze.mal_manga", ("mal_id", "http_status", "payload", "error", "extracted_at", "run_id"), details
+    )
+
+    # ---- relações na AniList: obra de origem (SOURCE → mangá) + sequências dentro da franquia
+    by_franchise: dict[int, list[Anime]] = {}
+    for a in catalog:
+        by_franchise.setdefault(a.franchise, []).append(a)
+    rel_rows = []
+    for a in catalog:
+        if rng.random() < 0.03:  # sem cadastro na AniList
+            rel_rows.append((a.mal_id, 404, None, None, now, run.run_id))
+            continue
+        edges = []
+        if a.franchise in source_of_franchise:
+            edges.append(
+                {
+                    "relationType": "SOURCE",
+                    "node": {
+                        "id": 700000 + source_of_franchise[a.franchise],
+                        "idMal": source_of_franchise[a.franchise],
+                        "type": "MANGA",
+                        "format": "MANGA",
+                    },
+                }
+            )
+        for other in by_franchise[a.franchise]:
+            if other.mal_id != a.mal_id:
+                kind = "SEQUEL" if other.year >= a.year else "PREQUEL"
+                edges.append(
+                    {
+                        "relationType": kind,
+                        "node": {"id": 900000 + other.mal_id, "idMal": other.mal_id, "type": "ANIME", "format": "TV"},
+                    }
+                )
+        rel_rows.append((a.mal_id, 200, to_json(edges), None, now, run.run_id))
+    counts["anilist_relations"] = wh.insert_rows(
+        "bronze.anilist_relations", ("mal_id", "http_status", "payload", "error", "extracted_at", "run_id"), rel_rows
     )
     return counts

@@ -21,9 +21,12 @@ select
     count(distinct r.character_id) filter (where r.character_role = 'Main') as num_main_roles,
     round(avg(r.mean_score), 3)                                       as avg_anime_score,
     sum(r.num_list_users)                                             as total_members_reached,
-    -- mesma chave (com desempate) nas duas colunas: personagem e anime sempre do mesmo papel
-    arg_max(r.character_name, {'f': r.character_favourites, 'c': r.character_name, 't': r.title}) as most_famous_character,
-    arg_max(r.title, {'f': r.character_favourites, 'c': r.character_name, 't': r.title})          as most_famous_character_anime,
+    -- mesma chave nas duas colunas (personagem e anime sempre do mesmo papel); o personagem aparece em
+    -- várias obras, então o desempate é o anime mais popular dele (e não um especial ou comercial)
+    arg_max(r.character_name, {'f': r.character_favourites, 'c': r.character_name, 'm': r.num_list_users, 't': r.title})
+                                                                      as most_famous_character,
+    arg_max(r.title, {'f': r.character_favourites, 'c': r.character_name, 'm': r.num_list_users, 't': r.title})
+                                                                      as most_famous_character_anime,
     min(a2.season_year)                                               as first_year,
     max(a2.season_year)                                               as last_year,
     rank() over (partition by any_value(r.voice_language) order by count(distinct r.mal_id) desc) as rank_by_volume

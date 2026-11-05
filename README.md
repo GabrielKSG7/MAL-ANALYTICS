@@ -83,8 +83,44 @@ usuários ainda), **18 dos 20** primeiros recomendados já estavam no meu *plan-
 2.021 títulos num catálogo de 8.489 candidatos (ao acaso, seriam no máximo ~26%). O dashboard tem um filtro para mostrar só descobertas novas.
 → `ml.recommendations_for_user`
 
-<sub>Pendentes: polarização (depende do Jikan), "em alta" (depende da 2ª extração semanal) e o
-recomendador colaborativo (depende do Kaggle).</sub>
+### Ecossistema: pessoas e episódios
+
+> Carga de **3–4/nov/2026** pela AniList (elenco e staff de ~30 mil animes), Kitsu (guia de episódios) e
+> MAL (85.913 mangás e light novels). → `malpipe ecosystem`, ver [ADR 005](docs/adr/005-ecossistema-multifonte.md).
+
+**7. Quem mais dublou.** São **27,5 mil dubladores** em 24 idiomas (9,7 mil japoneses). Em número de
+personagens, lideram **Takehito Koyasu** (443 personagens em 676 animes — o mais querido é *Dio Brando*),
+**Tomokazu Sugita** (403, *Joseph Joestar*), **Katsuyuki Konishi** (344, *Kamina*), **Takahiro Sakurai** (343)
+e **Kana Hanazawa** (337) — que é, de longe, quem mais fez **protagonistas** (164; o 2º, Sakurai, tem 129).
+Em **público alcançado** (soma de membros dos animes), o topo é Sakurai (175,8 mi), Koyasu, **Junichi Suwabe**
+(*Sukuna*) e **Yuuki Kaji** (*Eren*). Entre os 100 dubladores japoneses mais ativos, 62 são homens. Na
+dublagem em português, **Tatiane Keplmair** (*Nami*), **Tatá Guarnieri** (*Kenshin*) e **Fernanda Bullara**
+(*Asuka*) são as vozes com mais personagens.
+→ `mart_voice_actor_ranking`
+
+**8. As duplas que mais contracenaram** vêm das franquias com filme todo ano: **Minami Takayama × Kappei
+Yamaguchi** (46 animes juntos — Conan e Shinichi), **Ikue Ootani × Rica Matsumoto** (42 — Pikachu e Ash) e
+**Kiyoshi Kobayashi × Kanichi Kurita** (39 — Jigen e Lupin). Na geração seguinte, **Hiroshi Kamiya × Daisuke
+Ono** somam 35 obras (*Durarara!!*, *Osomatsu-san*, *Working!!*, *Shingeki no Kyojin*…). O grafo tem
+59 mil pares. → `mart_seiyuu_network`
+
+**9. Diretores: a mesma lição dos estúdios.** Entre 1.037 diretores com 3+ obras com nota, os de maior
+mediana com 5+ obras são **Chizuru Miyawaki** (8,88 — *Gintama*), **Tatsuya Oishi** (8,36 — *Monogatari*),
+**Masashi Koizuka** (8,28 — *Shingeki no Kyojin*) e **Satoshi Kon** (8,25). Com escala, se destacam
+**Susumu Mitsunaka** (12 obras, mediana 8,17 — *Haikyuu!!*), **Haruo Sotozaki** (11, 8,14 — *Kimetsu no Yaiba*)
+e **Nobutaka Yoda** (17, 8,14 — *Fruits Basket*). Ponderando pelo público, **Yasuhiro Irie** (*FMA:
+Brotherhood*, 8,79) e **Hiroshi Koujina** (*Hunter x Hunter* 2011, 8,77) lideram. E de novo a consistência
+sozinha engana: os diretores com menor variação (8+ obras) têm medianas entre 5 e 6.
+→ `mart_director_performance`
+
+**10. O episódio encolheu — e voltou.** No guia de **66,8 mil episódios** do Kitsu, a duração média ponderada
+foi de **24,6 min** (1975–89) para **19,8 min** (2013–16, auge das séries curtas) e voltou a **~22 min**
+(2017–19). Ressalva: a cobertura do Kitsu despenca a partir de 2020 (125 episódios datados em 2020 contra
+1.952 em 2019), então os anos recentes não entram na conclusão. → `mart_episode_trends`
+
+<sub>Pendentes: mangá × anime (a ligação vem das relações da AniList — `malpipe anilist-relations`),
+polarização (depende do Jikan), "em alta" (depende da 2ª extração semanal) e o recomendador colaborativo
+(depende do Kaggle).</sub>
 
 ## Arquitetura
 
@@ -127,7 +163,7 @@ Detalhes: [docs/architecture.md](docs/architecture.md) · limites e termos de us
 - Cliente **GraphQL** com paginação aninhada (personagens e staff), diretivas `@include` para não rebuscar o que já veio e erro de GraphQL (HTTP 200) tratado como falha; **circuit breaker** de rede e `check-sources` para diagnóstico.
 - Kaggle carregado com o `read_csv` paralelo do DuckDB (sem passar pelo pandas), com amostragem determinística de usuários para desenvolvimento.
 
-**Modelagem (`dbt/`)** — 61 modelos + 1 snapshot, 115 testes de dados, 3 unit tests
+**Modelagem (`dbt/`)** — 63 modelos + 1 snapshot, 119 testes de dados, 3 unit tests
 - **Staging** parseia o JSON (`->>`, `from_json`, `unnest`), trata contadores que chegam como string, datas parciais do MAL (`"2015-04"`) e aplica "última extração vence".
 - **Franquias por grafo**: componentes conexos das relações sequel/prequel/side story via **CTE recursiva**.
 - **Nota bayesiana** (fórmula IMDb) e **índice de polarização** a partir da distribuição de votos ([ADR 003](docs/adr/003-metricas-de-qualidade.md)).
@@ -155,7 +191,7 @@ Detalhes: [docs/architecture.md](docs/architecture.md) · limites e termos de us
 trabalho e `sql/consultas_dbeaver.sql` traz 38 consultas prontas ([guia](docs/dbeaver.md)).
 
 **Engenharia**
-- 36 testes Python (HTTP e GraphQL mockados com `respx`, paginação, checkpoint, loaders, recsys) · ruff · GitHub Actions rodando o **pipeline inteiro** (sintético + manami real) a cada push.
+- 39 testes Python (HTTP e GraphQL mockados com `respx`, paginação, checkpoint, loaders, recsys) · ruff · GitHub Actions rodando o **pipeline inteiro** (sintético + manami real) a cada push.
 - Gerador de **dados sintéticos no formato exato das APIs**: o projeto roda sem credenciais e o CI é determinístico.
 - Dicionário de dados gerado automaticamente do manifest do dbt.
 
@@ -227,7 +263,7 @@ Rotina semanal: `malpipe incremental && make build` — agendamento no Windows e
 
 ```
 malpipe init | status | sample | manami | discover | mal-details | jikan | my-list | kaggle | incremental
-        manga | anilist | kitsu | ecosystem | check-sources | merge | recommend | dbt | publish | export
+        manga | anilist | anilist-relations | kitsu | ecosystem | check-sources | merge | recommend | dbt | publish | export
 make demo | ingest | ecosystem | sources | build | publish | dbt-build | dbt-docs | recommend | dashboard | test | lint
 ```
 

@@ -38,6 +38,17 @@ models:
           arguments: {columns: [user_key, mal_id]}
           config: {severity: warn}
 
+  - name: int_manga__anime_links
+    description: >
+      Ligações mangá × anime unindo MAL (related_anime do mangá) e AniList (obra de origem do anime),
+      no vocabulário de relações do MAL. Uma linha por (mangá, anime, tipo de relação).
+    data_tests:
+      - unique_combination: {arguments: {columns: [manga_id, mal_id, relation_type]}}
+    columns:
+      - name: link_sources
+        data_tests:
+          - accepted_values: {arguments: {values: [mal, anilist, anilist+mal]}}
+
 unit_tests:
   - name: franchise_joins_chain_and_ignores_weak_relations
     description: >
@@ -103,3 +114,4 @@ unit_tests:
         union all
         select 3, 8.0, 1000, 8.0, 1000.0,
                (1000 / (1000 + 1000.0)) * 8.0 + (1000.0 / (1000 + 1000.0)) * 8.0
+

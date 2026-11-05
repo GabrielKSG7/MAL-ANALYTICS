@@ -18,7 +18,7 @@ adaptations as (
            arg_max(a.title, coalesce(a.num_list_users, 0))           as main_adaptation_title,
            arg_max(a.mean_score, coalesce(a.num_list_users, 0))      as main_adaptation_score,
            min(a.start_date)                                         as first_adaptation_date
-    from {{ ref('stg_mal__manga_anime_links') }} l
+    from {{ ref('int_manga__anime_links') }} l
     join {{ ref('dim_anime') }} a using (mal_id)
     where l.relation_type in ('adaptation', 'alternative_version', 'full_story', 'parent_story')
     group by l.manga_id

@@ -128,6 +128,17 @@ DDL += [
         run_id        VARCHAR NOT NULL
     )
     """,
+    # payload = arestas de relação do anime na AniList (inclui a obra de origem: relationType SOURCE)
+    """
+    CREATE TABLE IF NOT EXISTS bronze.anilist_relations (
+        mal_id        INTEGER NOT NULL,
+        http_status   INTEGER NOT NULL,
+        payload       JSON,
+        error         VARCHAR,
+        extracted_at  TIMESTAMP NOT NULL,
+        run_id        VARCHAR NOT NULL
+    )
+    """,
     # payload = lista com todos os episódios do anime (todas as páginas do Kitsu)
     """
     CREATE TABLE IF NOT EXISTS bronze.kitsu_episodes (

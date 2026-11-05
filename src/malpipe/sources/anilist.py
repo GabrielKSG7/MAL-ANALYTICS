@@ -179,3 +179,74 @@ def fetch_all(
             buffer.clear()
             log.info("anilist: %s/%s (%s)", i, len(ids), status_count)
     return status_count
+
+
+# ----------------------------------------------------------------------------- relações (em lote)
+# A ligação anime → mangá de origem não vem da MAL API na prática (o `related_anime` dos mangás
+# chega vazio), mas a AniList informa a obra de origem de cada anime (`relationType: SOURCE`).
+# Como só precisamos das relações, dá para pedir 50 animes por requisição: ~30 mil animes em
+# ~600 chamadas (≈ 20 min no ritmo degradado), em vez de 30 mil.
+RELATIONS_QUERY = """
+query ($ids: [Int]) {
+  Page(page: 1, perPage: 50) {
+    media(idMal_in: $ids, type: ANIME) {
+      idMal
+      relations {
+        edges {
+          relationType(version: 2)
+          node { id idMal type format }
+        }
+      }
+    }
+  }
+}
+"""
+RELATIONS_BATCH = 50
+
+
+def fetch_relations_batch(client: PoliteClient, ids: list[int]) -> tuple[int, dict[int, list], str | None]:
+    """Uma requisição para até 50 animes. Devolve (status, {mal_id: arestas}, erro)."""
+    result = client.post_json("", {"query": RELATIONS_QUERY, "variables": {"ids": ids}})
+    if not result.ok:
+        return result.status_code, {}, result.error
+    data = (result.payload or {}).get("data") or {}
+    page = data.get("Page")
+    if page is None:
+        errors = (result.payload or {}).get("errors")
+        return 400, {}, f"GraphQL: {json.dumps(errors, ensure_ascii=False)[:400]}"
+    found: dict[int, list] = {}
+    for media in page.get("media") or []:
+        if media and media.get("idMal") is not None and media["idMal"] not in found:
+            found[media["idMal"]] = ((media.get("relations") or {}).get("edges")) or []
+    return result.status_code, found, None
+
+
+def fetch_relations_all(
+    client: PoliteClient, wh: Warehouse, run: RunContext, ids: Iterable[int], batch_size: int = RELATIONS_BATCH
+) -> dict[int, int]:
+    """Grava uma linha por anime em bronze.anilist_relations (404 = anime sem cadastro na AniList)."""
+    columns = ("mal_id", "http_status", "payload", "error", "extracted_at", "run_id")
+    ids = list(ids)
+    status_count: dict[int, int] = {}
+    graphql_errors = 0
+    for start in range(0, len(ids), batch_size):
+        chunk = ids[start : start + batch_size]
+        status, found, error = fetch_relations_batch(client, chunk)
+        rows = []
+        for mal_id in chunk:
+            if status == 200:
+                st, payload, err = (200, to_json(found[mal_id]), None) if mal_id in found else (404, None, None)
+            else:
+                st, payload, err = status, None, error
+            status_count[st] = status_count.get(st, 0) + 1
+            rows.append((mal_id, st, payload, err, utcnow(), run.run_id))
+        run.add(wh.insert_rows("bronze.anilist_relations", columns, rows))
+        graphql_errors = graphql_errors + 1 if (error or "").startswith("GraphQL") else 0
+        if graphql_errors >= 3:
+            raise RuntimeError(f"A AniList rejeitou a consulta de relações 3 vezes seguidas: {error}")
+        if client.host_unreachable:
+            client.raise_if_unreachable()
+        done = min(start + batch_size, len(ids))
+        if done % (batch_size * 10) == 0 or done == len(ids):
+            log.info("anilist relações: %s/%s (%s)", done, len(ids), status_count)
+    return status_count

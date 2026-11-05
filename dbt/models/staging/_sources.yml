@@ -48,6 +48,10 @@ sources:
         description: >
           Anime na AniList buscado pelo ID do MAL, com todas as páginas de personagens (com
           dubladores) e staff mescladas num único JSON por extração.
+      - name: anilist_relations
+        description: >
+          Relações de cada anime na AniList (buscadas em lotes de 50). Fonte da ligação anime → obra
+          de origem (relationType SOURCE), que a MAL API não entrega para mangás.
       - name: kitsu_episodes
         description: Lista de episódios de cada anime (Kitsu), todas as páginas mescladas.
       - name: kaggle_animelist

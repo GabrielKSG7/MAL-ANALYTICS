@@ -88,7 +88,12 @@
   educacionais. Este projeto é pessoal e educacional, respeita o limite e guarda os dados só localmente —
   ainda assim é a fonte mais sensível: use `--limit` (ex.: só os animes da sua lista e os mais populares)
   se quiser ficar do lado conservador, e nunca republique a base derivada.
-- **Volume:** ~30 mil animes × ~1,2 requisição ≈ 11 h.
+- **Volume:** ~30 mil animes × ~1,2 requisição ≈ 19 h no ritmo degradado.
+- **Relações em lote** (`malpipe anilist-relations`, também roda dentro do `ecosystem`): `Page(perPage: 50)
+  { media(idMal_in: [...]) { relations { edges { relationType(version: 2) node { idMal type } } } } }` —
+  50 animes por chamada, ~600 chamadas (~20 min). É daqui que sai a ligação anime → mangá de origem
+  (`relationType: SOURCE`): na carga real, o `related_anime` dos 85.913 mangás veio sem nenhuma ligação
+  aproveitável da MAL API.
 
 ## 7. Kitsu (JSON:API)
 

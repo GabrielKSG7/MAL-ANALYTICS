@@ -191,16 +191,31 @@ def _warn_if_few_anime_details(wh: Warehouse) -> None:
         )
 
 
+def _run_anilist_relations(settings, wh: Warehouse, limit: int | None) -> str:
+    ids = wh.pending_ids("bronze.anilist_relations", settings.refresh_days * 4, wh.fetched_mal_ids_sql(), limit=limit)
+    batches = -(-len(ids) // anilist.RELATIONS_BATCH)
+    log.info("anilist relações: %s animes pendentes (%s lotes, ~%.0f min)", len(ids), batches,
+             batches / settings.anilist_rps / 60)  # fmt: skip
+    if not ids:
+        return "nada pendente"
+    with wh.run("anilist-relations") as run, anilist.build_client(settings) as client:
+        stats = anilist.fetch_relations_all(client, wh, run, ids)
+        run.notes = f"status: {stats}"
+    return f"{len(ids):,} animes · {stats}"
+
+
 def _run_anilist(settings, wh: Warehouse, limit: int | None) -> str:
     _warn_if_few_anime_details(wh)
+    # mesmo host e mesmo limite: as relações (rápidas, em lote) vêm antes, na mesma thread
+    rel = _run_anilist_relations(settings, wh, limit)
     ids = wh.pending_ids("bronze.anilist_media", settings.refresh_days * 4, wh.fetched_mal_ids_sql(), limit=limit)
     log.info("anilist: %s animes pendentes (~%.1f h)", len(ids), len(ids) / settings.anilist_rps / 3600)
     if not ids:
-        return "nada pendente"
+        return f"relações: {rel} · elenco/staff: nada pendente"
     with wh.run("anilist") as run, anilist.build_client(settings) as client:
         stats = anilist.fetch_all(client, wh, run, ids, max_pages=settings.anilist_max_pages)
         run.notes = f"status: {stats}"
-    return f"{len(ids):,} animes · {stats}"
+    return f"relações: {rel} · elenco/staff: {len(ids):,} animes · {stats}"
 
 
 def _run_kitsu(settings, wh: Warehouse, limit: int | None) -> str:
@@ -234,6 +249,14 @@ def anilist_cmd(limit: Annotated[int | None, typer.Option()] = None) -> None:
     """Personagens, dubladores, staff, estúdios e pessoas pela AniList (por ID do MAL)."""
     wh = _wh()
     console.print(_run_anilist(get_settings(), wh, limit))
+    wh.close()
+
+
+@app.command("anilist-relations")
+def anilist_relations_cmd(limit: Annotated[int | None, typer.Option()] = None) -> None:
+    """Só as relações dos animes na AniList (obra de origem → ligação mangá × anime), em lote (~20 min)."""
+    wh = _wh()
+    console.print(_run_anilist_relations(get_settings(), wh, limit))
     wh.close()
 
 
@@ -562,13 +585,16 @@ def status() -> None:
     console.print(f"Sua lista: [bold]{mine[0]:,}[/] animes, [bold]{mine[1]:,}[/] já com detalhe")
 
     eco = Table("fonte", "concluídos", "pendentes", title="Ecossistema")
+    # mesma janela de atualização que cada comando usa (mangá/AniList/Kitsu: 4× REFRESH_DAYS)
+    window = settings.refresh_days * 4
     targets = [
         ("mangá (MAL)", "bronze.mal_manga", wh.known_manga_ids_sql()),
-        ("AniList", "bronze.anilist_media", wh.known_mal_ids_sql()),
+        ("AniList (elenco/staff)", "bronze.anilist_media", wh.fetched_mal_ids_sql()),
+        ("AniList (relações)", "bronze.anilist_relations", wh.fetched_mal_ids_sql()),
     ]
     for label, table, known in targets:
-        done = len(wh.done_ids(table, settings.refresh_days))
-        eco.add_row(label, f"{done:,}", f"{len(wh.pending_ids(table, settings.refresh_days, known)):,}")
+        done = len(wh.done_ids(table, window))
+        eco.add_row(label, f"{done:,}", f"{len(wh.pending_ids(table, window, known)):,}")
     kitsu_done = wh.done_ids("bronze.kitsu_episodes", settings.refresh_days * 4)
     kitsu_todo = sum(1 for m in wh.kitsu_candidates() if m not in kitsu_done)
     eco.add_row("Kitsu (episódios)", f"{len(kitsu_done):,}", f"{kitsu_todo:,}")

@@ -794,6 +794,10 @@ with tabs[7]:
             if ep.empty:
                 empty_state(ECO_HINT)
             else:
+                st.caption(
+                    "Fonte: guia de episódios do Kitsu. A cobertura do Kitsu cai muito a partir de 2020 "
+                    "(muitas séries recentes estão sem datas de exibição), então os últimos anos ficam subestimados."
+                )
                 c1, c2 = st.columns(2)
                 fig = px.bar(ep, x="aired_year", y="episodes_aired", color_discrete_sequence=[BLUE],
                              title="Episódios exibidos por ano", labels={"aired_year": "", "episodes_aired": "episódios"})  # fmt: skip

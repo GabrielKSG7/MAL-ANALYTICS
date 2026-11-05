@@ -146,7 +146,7 @@ models:
           - value_between: {arguments: {min_value: 1, max_value: 10}}
 
   - name: bridge_manga_anime
-    description: Mangá × anime (adaptações e outras ligações declaradas no MAL).
+    description: Mangá × anime (adaptações e outras ligações, MAL + AniList). `link_sources` diz quem confirmou.
     data_tests:
       - unique_combination: {arguments: {columns: [manga_id, mal_id, relation_type]}}
 

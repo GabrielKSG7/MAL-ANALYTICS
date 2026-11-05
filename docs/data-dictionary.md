@@ -57,6 +57,17 @@
 | `image_url` | VARCHAR |  |
 | `profile_url` | VARCHAR |  |
 
+### `staging.stg_anilist__relations` · view
+
+| coluna | tipo | descrição |
+|---|---|---|
+| `mal_id` | INTEGER |  |
+| `relation_type` | VARCHAR |  |
+| `related_type` | VARCHAR |  |
+| `related_format` | VARCHAR |  |
+| `related_anilist_id` | INTEGER |  |
+| `related_mal_id` | INTEGER |  |
+
 ### `staging.stg_anilist__staff_roles` · view
 
 | coluna | tipo | descrição |
@@ -264,7 +275,9 @@ Testes: `not_null(mal_id)`, `value_between(mean_score)`
 | `status_plan_to_watch` | BIGINT |  |
 | `mal_created_at` | TIMESTAMP WITH TIME ZONE |  |
 | `mal_updated_at` | TIMESTAMP WITH TIME ZONE |  |
-| `_payload` | JSON |  |
+| `_genres` | STRUCT(id INTEGER, "name" VARCHAR)[] |  |
+| `_studios` | STRUCT(id INTEGER, "name" VARCHAR)[] |  |
+| `_related_anime` | STRUCT(node STRUCT(id INTEGER, title VARCHAR), relation_type VARCHAR)[] |  |
 
 ### `staging.stg_mal__anime_genres` · view
 
@@ -472,6 +485,19 @@ Testes: `assert_weighted_score_within_bounds`, `not_null(mal_id)`, `unique(mal_i
 | `prior_votes` | DOUBLE |  |
 | `weighted_score` | DOUBLE |  |
 
+### `intermediate.int_manga__anime_links` · view
+
+Ligações mangá × anime unindo MAL (related_anime do mangá) e AniList (obra de origem do anime), no vocabulário de relações do MAL. Uma linha por (mangá, anime, tipo de relação).
+
+Testes: `accepted_values(link_sources)`, `unique_combination`
+
+| coluna | tipo | descrição |
+|---|---|---|
+| `manga_id` | INTEGER |  |
+| `mal_id` | INTEGER |  |
+| `relation_type` | VARCHAR |  |
+| `link_sources` | VARCHAR |  |
+
 ### `intermediate.int_users__ratings_normalized` · view
 
 Notas da base Kaggle normalizadas por usuário (centralizadas e z-score).
@@ -546,7 +572,7 @@ Testes: `relationships(studio_id)`
 
 ### `core.bridge_manga_anime` · table
 
-Mangá × anime (adaptações e outras ligações declaradas no MAL).
+Mangá × anime (adaptações e outras ligações, MAL + AniList). `link_sources` diz quem confirmou.
 
 Testes: `unique_combination`
 
@@ -555,6 +581,7 @@ Testes: `unique_combination`
 | `manga_id` | INTEGER |  |
 | `mal_id` | INTEGER |  |
 | `relation_type` | VARCHAR |  |
+| `link_sources` | VARCHAR |  |
 
 ### `core.bridge_manga_author` · table
 

@@ -147,3 +147,35 @@ def test_merge_copies_bronze_once_and_tolerates_older_schema(tmp_path, wh):
     assert wh.con.execute("SELECT count(*) FROM bronze.mal_manga").fetchone()[0] == 1  # o que já havia continua
     with pytest.raises(ValueError):
         wh.merge_from(wh.path)
+
+
+@respx.mock
+def test_anilist_relations_batches_and_marks_missing_as_404(wh, make_client):
+    calls = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        ids = json.loads(request.content)["variables"]["ids"]
+        calls.append(ids)
+        media = [
+            {"idMal": i, "relations": {"edges": [{"relationType": "SOURCE",
+             "node": {"id": 1, "idMal": 900 + i, "type": "MANGA", "format": "MANGA"}}]}}
+            for i in ids if i % 3 != 0  # múltiplos de 3 "não existem" na AniList
+        ]  # fmt: skip
+        return httpx.Response(200, json={"data": {"Page": {"media": media}}})
+
+    respx.post(ANILIST).mock(side_effect=handler)
+    with wh.run("anilist-relations") as run:
+        stats = anilist.fetch_relations_all(make_client(base_url=ANILIST), wh, run, range(1, 8), batch_size=3)
+    assert [len(c) for c in calls] == [3, 3, 1]  # 7 animes em lotes de 3
+    assert stats == {200: 5, 404: 2}
+    edges = json.loads(wh.con.execute("SELECT payload FROM bronze.anilist_relations WHERE mal_id = 1").fetchone()[0])
+    assert edges[0]["relationType"] == "SOURCE" and edges[0]["node"]["idMal"] == 901
+
+
+@respx.mock
+def test_anilist_relations_graphql_error_stops_after_3_batches(wh, make_client):
+    respx.post(ANILIST).mock(return_value=httpx.Response(200, json={"errors": [{"message": "bad"}], "data": None}))
+    with pytest.raises(RuntimeError, match="relações"), wh.run("anilist-relations") as run:
+        anilist.fetch_relations_all(make_client(base_url=ANILIST), wh, run, range(1, 20), batch_size=2)
+    statuses = {r[0] for r in wh.con.execute("SELECT DISTINCT http_status FROM bronze.anilist_relations").fetchall()}
+    assert statuses == {400}  # nada gravado como sucesso

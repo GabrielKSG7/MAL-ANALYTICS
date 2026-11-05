@@ -84,6 +84,7 @@ malpipe incremental && make build
 | `git pull` pergunta "Deletion of directory '.git/objects/..' failed. Should I try again?" | O OneDrive está sincronizando a pasta `.git` e trava os arquivos durante a limpeza automática do Git | Responda `n` (o pull já foi aplicado) e rode uma vez `git config gc.auto 0`. Melhor ainda: deixar o repositório fora do OneDrive. |
 | `Out of Memory Error` no dbt ou no `publish` | Modelo grande demais para o `memory_limit` (padrão 4 GB) | Já corrigido para anime, mangá e AniList (JSON lido uma vez só; o `publish` não copia colunas técnicas `_*`). Se ainda acontecer: `DUCKDB_MEMORY_LIMIT=8GB` no `.env`, ou `malpipe dbt build --threads 1`. |
 | AniList/Kitsu com poucas centenas de animes pendentes | Este banco tem poucos animes com detalhe do MAL (o aviso aparece no log) | `malpipe status` mostra "Animes com detalhe do MAL". Se a carga completa está em outro arquivo: `malpipe merge <outro.duckdb>`; senão, `malpipe mal-details`. Depois rode `malpipe ecosystem` de novo. |
+| Mart de adaptações vazia / mangás famosos "sem anime" | Faltam as relações da AniList | `malpipe anilist-relations` (~20 min) e o build. |
 | Quero reprocessar tudo do zero | — | `dbt build --full-refresh`. O bronze não muda; não há nova chamada às APIs. |
 
 ## Consultas úteis
