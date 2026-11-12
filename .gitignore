@@ -1,5 +1,7 @@
 # dados (nunca versionar bases extraídas)
 data/
+# exceção: números agregados do painel público (gerados por `malpipe site`)
+!site/data/
 *.duckdb
 *.duckdb.wal
 

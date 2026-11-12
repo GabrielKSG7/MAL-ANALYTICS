@@ -1,0 +1,66 @@
+[
+ {
+  "posicao": 1,
+  "obra": "Goodnight Punpun",
+  "inicio": 2007,
+  "autor": "Inio Asano",
+  "nota": 8.97,
+  "leitores": 532174
+ },
+ {
+  "posicao": 2,
+  "obra": "Vagabond",
+  "inicio": 1998,
+  "autor": "Takehiko Inoue; Eiji Yoshikawa",
+  "nota": 9.27,
+  "leitores": 470749
+ },
+ {
+  "posicao": 3,
+  "obra": "20th Century Boys",
+  "inicio": 1999,
+  "autor": "Naoki Urasawa",
+  "nota": 8.93,
+  "leitores": 319631
+ },
+ {
+  "posicao": 4,
+  "obra": "Fire Punch",
+  "inicio": 2016,
+  "autor": "Tatsuki Fujimoto",
+  "nota": 7.95,
+  "leitores": 233166
+ },
+ {
+  "posicao": 5,
+  "obra": "Three Days of Happiness",
+  "inicio": 2016,
+  "autor": "Shouichi Taguchi; Sugaru Miaki",
+  "nota": 8.77,
+  "leitores": 200495
+ },
+ {
+  "posicao": 6,
+  "obra": "JoJolion",
+  "inicio": 2011,
+  "autor": "Hirohiko Araki",
+  "nota": 8.5,
+  "leitores": 180499
+ },
+ {
+  "posicao": 7,
+  "obra": "Homunculus",
+  "inicio": 2003,
+  "autor": "Hideo Yamamoto",
+  "nota": 8.34,
+  "leitores": 178920
+ },
+ {
+  "posicao": 8,
+  "obra": "Goodbye, Eri",
+  "inicio": 2022,
+  "autor": "Tatsuki Fujimoto",
+  "nota": 8.63,
+  "leitores": 177382
+ }
+]

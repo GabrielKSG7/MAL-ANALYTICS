@@ -1,0 +1,114 @@
+[
+ {
+  "ano": 2011,
+  "original": 0.39,
+  "manga": 0.222,
+  "light_novel": 0.086,
+  "sequencias": 0.231
+ },
+ {
+  "ano": 2012,
+  "original": 0.416,
+  "manga": 0.242,
+  "light_novel": 0.064,
+  "sequencias": 0.276
+ },
+ {
+  "ano": 2013,
+  "original": 0.367,
+  "manga": 0.224,
+  "light_novel": 0.098,
+  "sequencias": 0.248
+ },
+ {
+  "ano": 2014,
+  "original": 0.36,
+  "manga": 0.234,
+  "light_novel": 0.072,
+  "sequencias": 0.22
+ },
+ {
+  "ano": 2015,
+  "original": 0.413,
+  "manga": 0.242,
+  "light_novel": 0.061,
+  "sequencias": 0.296
+ },
+ {
+  "ano": 2016,
+  "original": 0.406,
+  "manga": 0.249,
+  "light_novel": 0.039,
+  "sequencias": 0.248
+ },
+ {
+  "ano": 2017,
+  "original": 0.375,
+  "manga": 0.219,
+  "light_novel": 0.046,
+  "sequencias": 0.309
+ },
+ {
+  "ano": 2018,
+  "original": 0.346,
+  "manga": 0.273,
+  "light_novel": 0.054,
+  "sequencias": 0.278
+ },
+ {
+  "ano": 2019,
+  "original": 0.38,
+  "manga": 0.251,
+  "light_novel": 0.051,
+  "sequencias": 0.307
+ },
+ {
+  "ano": 2020,
+  "original": 0.338,
+  "manga": 0.242,
+  "light_novel": 0.057,
+  "sequencias": 0.284
+ },
+ {
+  "ano": 2021,
+  "original": 0.335,
+  "manga": 0.276,
+  "light_novel": 0.07,
+  "sequencias": 0.282
+ },
+ {
+  "ano": 2022,
+  "original": 0.304,
+  "manga": 0.27,
+  "light_novel": 0.082,
+  "sequencias": 0.301
+ },
+ {
+  "ano": 2023,
+  "original": 0.293,
+  "manga": 0.304,
+  "light_novel": 0.113,
+  "sequencias": 0.294
+ },
+ {
+  "ano": 2024,
+  "original": 0.25,
+  "manga": 0.32,
+  "light_novel": 0.112,
+  "sequencias": 0.337
+ },
+ {
+  "ano": 2025,
+  "original": 0.233,
+  "manga": 0.343,
+  "light_novel": 0.103,
+  "sequencias": 0.28
+ },
+ {
+  "ano": 2026,
+  "original": 0.153,
+  "manga": 0.454,
+  "light_novel": 0.17,
+  "sequencias": 0.344
+ }
+]

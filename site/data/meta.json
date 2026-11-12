@@ -1,0 +1,19 @@
+{
+ "generated_at": "2026-11-05T13:30:00Z",
+ "username": "gabu_rieru",
+ "rows": {
+  "adaptacao_por_estudio": 20,
+  "adaptacao_por_origem": 4,
+  "adaptacao_resumo": 1,
+  "dubladores": 10,
+  "episodios": 45,
+  "estudios": 10,
+  "notas_por_ano": 32,
+  "origem_por_ano": 16,
+  "panorama": 4,
+  "recomendacoes": 20,
+  "recomendador_base": 1,
+  "sem_anime": 8
+ },
+ "note": "Primeira versão montada a partir das exportações das marts de 2 e 5/nov/2026; `malpipe site` regenera tudo direto do banco."
+}
