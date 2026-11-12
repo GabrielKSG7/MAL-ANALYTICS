@@ -1,0 +1,911 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>MAL Analytics</title>
+<meta name="description" content="O que o catálogo do MyAnimeList conta sobre a indústria de animação japonesa: notas, estúdios, adaptações, dubladores e um recomendador — um projeto de engenharia de dados de ponta a ponta.">
+<meta name="author" content="Gabriel Silva Grande">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="pt_BR">
+<meta property="og:title" content="MAL Analytics: o que 30 mil animes contam sobre a indústria">
+<meta property="og:description" content="O que o catálogo do MyAnimeList conta sobre a indústria de animação japonesa: notas, estúdios, adaptações, dubladores e um recomendador — um projeto de engenharia de dados de ponta a ponta.">
+<meta property="og:url" content="https://gabrielksg7.github.io/MAL-ANALYTICS/">
+<meta property="og:image" content="https://gabrielksg7.github.io/MAL-ANALYTICS/assets/preview.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232a78d6'/%3E%3Cpath d='M8 23V12M14 23V8M20 23v-7M26 23v-4' stroke='white' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="preload" href="assets/fonts/source-serif-4-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="assets/fonts/ibm-plex-sans-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+<style>
+  /* Fontes e d3 hospedados no próprio site (OFL / ISC; licenças em assets/). */
+  @font-face { font-family: "IBM Plex Sans"; font-style: normal; font-weight: 400; font-display: swap; src: url("assets/fonts/ibm-plex-sans-latin-400-normal.woff2") format("woff2"); }
+  @font-face { font-family: "IBM Plex Sans"; font-style: normal; font-weight: 500; font-display: swap; src: url("assets/fonts/ibm-plex-sans-latin-500-normal.woff2") format("woff2"); }
+  @font-face { font-family: "IBM Plex Sans"; font-style: normal; font-weight: 600; font-display: swap; src: url("assets/fonts/ibm-plex-sans-latin-600-normal.woff2") format("woff2"); }
+  @font-face { font-family: "Source Serif 4"; font-style: normal; font-weight: 400; font-display: swap; src: url("assets/fonts/source-serif-4-latin-400-normal.woff2") format("woff2"); }
+  @font-face { font-family: "Source Serif 4"; font-style: normal; font-weight: 600; font-display: swap; src: url("assets/fonts/source-serif-4-latin-600-normal.woff2") format("woff2"); }
+  /* Página de leitura em coluna larga: cabeçalho, seções de achados e notas de método. */
+  :root {
+    color-scheme: light;
+    --color-bg: #f6f7f9; --color-fg: #15181d; --color-fg-muted: #5b6370; --color-panel: #ffffff;
+    --color-border-line: #e2e5ea; --color-ok: #1a7f52; --color-warn: #a86b00; --color-bad: #c23b3a;
+    --series-1: #2a78d6; --series-2: #eb6834; --series-3: #1baf7a; --series-4: #eda100;
+    --series-5: #e34948; --series-6: #8a8985; --series-7: #7a5cd6; --series-8: #3aa0b5;
+    --cds-chart-grid: #e7eaef; --cds-chart-axis: #8f97a3; --cds-chart-reference: #b3bac5;
+    --cds-chart-muted: #c5cad3; --cds-chart-status-critical: #c23b3a;
+    --cds-surface-popover: #ffffff; --cds-border: #d9dde4; --cds-text-secondary: #5b6370;
+    --cds-shadow-popover: 0 8px 28px rgba(20, 24, 31, .12);
+    --font-anthropic-sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --font-anthropic-serif: "Source Serif 4", Georgia, "Times New Roman", serif;
+    --cds-font-size-caption: .8125rem; --cds-font-size-body: .975rem; --cds-font-size-heading: 1.075rem;
+    --cds-font-size-title: clamp(1.45rem, 2.6vw, 1.85rem); --cds-font-weight-medium: 500;
+    --cds-gap-xs: .25rem; --cds-gap-sm: .5rem; --cds-gap-md: 1rem; --cds-gap-lg: 1.5rem; --cds-gap-xl: 2.5rem;
+    --cds-pad-xs: .3rem; --cds-pad-sm: .55rem; --cds-pad-md: 1rem; --cds-pad-lg: 1.35rem; --cds-pad-xl: 2rem;
+    --cds-radius: 8px; --cds-dur-slow: .45s; --cds-ease-out: cubic-bezier(.2, .7, .2, 1);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --color-bg: #0f1115; --color-fg: #eceef2; --color-fg-muted: #9aa3b0; --color-panel: #171a20;
+      --color-border-line: #2a2f38; --color-ok: #4cc98a; --color-warn: #e0a83a; --color-bad: #ef6b6a;
+      --series-1: #5b9bea; --series-2: #f08458; --series-3: #3cc796; --series-4: #f2b632;
+      --series-5: #ef6b6a; --series-6: #a3a29e; --series-7: #9a82ea; --series-8: #5cbfd3;
+      --cds-chart-grid: #242932; --cds-chart-axis: #5d6572; --cds-chart-reference: #4a515d;
+      --cds-chart-muted: #3d4450; --cds-surface-popover: #1d2128; --cds-border: #323844; --cds-text-secondary: #9aa3b0;
+      --cds-shadow-popover: 0 8px 28px rgba(0, 0, 0, .45);
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --color-bg: #0f1115; --color-fg: #eceef2; --color-fg-muted: #9aa3b0; --color-panel: #171a20;
+    --color-border-line: #2a2f38; --color-ok: #4cc98a; --color-warn: #e0a83a; --color-bad: #ef6b6a;
+    --series-1: #5b9bea; --series-2: #f08458; --series-3: #3cc796; --series-4: #f2b632;
+    --series-5: #ef6b6a; --series-6: #a3a29e; --series-7: #9a82ea; --series-8: #5cbfd3;
+    --cds-chart-grid: #242932; --cds-chart-axis: #5d6572; --cds-chart-reference: #4a515d;
+    --cds-chart-muted: #3d4450; --cds-surface-popover: #1d2128; --cds-border: #323844; --cds-text-secondary: #9aa3b0;
+    --cds-shadow-popover: 0 8px 28px rgba(0, 0, 0, .45);
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--color-bg); color: var(--color-fg); font-family: var(--font-anthropic-sans);
+          font-size: var(--cds-font-size-body); line-height: 1.5; -webkit-font-smoothing: antialiased; }
+  img { max-width: 100%; }
+  [hidden] { display: none !important; }
+  .site-bar, #dash-root, .site-foot {
+    padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  .site-bar { border-bottom: 1px solid var(--color-border-line); background: var(--color-panel); }
+  .site-bar-in { max-width: 1120px; margin-inline: auto; display: flex; align-items: center; justify-content: space-between;
+                  gap: var(--cds-gap-md); padding-block: .75rem; flex-wrap: wrap; }
+  .site-brand { display: flex; align-items: center; gap: .55rem; font-weight: 600; letter-spacing: .01em; color: inherit; text-decoration: none; }
+  .site-brand svg { width: 22px; height: 22px; flex: none; }
+  .site-links { display: flex; gap: var(--cds-gap-lg); font-size: var(--cds-font-size-caption); }
+  .site-links a { color: var(--color-fg-muted); text-decoration: none; }
+  .site-links a:hover, .site-links a:focus-visible { color: var(--color-fg); text-decoration: underline; text-underline-offset: 3px; }
+  #dash-root { padding-block: clamp(1.5rem, 4vw, 3rem) 3rem; }
+  .site-foot { border-top: 1px solid var(--color-border-line); color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); }
+  .site-foot-in { max-width: 1120px; margin-inline: auto; padding-block: 1.25rem 2rem; display: flex; flex-wrap: wrap;
+                   gap: var(--cds-gap-sm) var(--cds-gap-lg); justify-content: space-between; }
+  .site-foot a { color: inherit; }
+  :focus-visible { outline: 2px solid var(--series-1); outline-offset: 2px; }
+  .dash-skeleton { background: linear-gradient(90deg, var(--color-border-line) 0%, var(--cds-chart-grid) 50%, var(--color-border-line) 100%);
+                    background-size: 200% 100%; border-radius: var(--cds-radius); opacity: .6; }
+  b.dash-skeleton, span.dash-skeleton { color: transparent; }
+  @media (prefers-reduced-motion: no-preference) {
+    .dash-skeleton { animation: sk 1.4s linear infinite; }
+    @keyframes sk { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+  }
+</style>
+<script src="assets/vendor/d3-7.9.0.min.js"></script>
+<script src="assets/dash.js"></script>
+</head>
+<body>
+<header class="site-bar">
+  <div class="site-bar-in">
+    <a class="site-brand" href="./">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="#2a78d6"/><path d="M8 23V12M14 23V8M20 23v-7M26 23v-4" stroke="white" stroke-width="3" stroke-linecap="round"/></svg>
+      MAL Analytics
+    </a>
+    <nav class="site-links" aria-label="Links">
+      <a href="#metodo">Como foi feito</a>
+      <a href="https://github.com/GabrielKSG7/MAL-ANALYTICS" target="_blank" rel="noopener">Código no GitHub</a>
+    </nav>
+  </div>
+</header>
+<main id="dash-root">
+<style>
+  .mx { max-width: 1120px; margin-inline: auto; display: grid; gap: calc(var(--cds-gap-xl) * 1.5); font-family: var(--font-anthropic-sans); }
+  .mx-head { display: grid; gap: var(--cds-gap-sm); padding-block: var(--cds-pad-md) 0; }
+  .mx-eyebrow { font-size: var(--cds-font-size-caption); letter-spacing: .08em; text-transform: uppercase; color: var(--color-fg-muted); margin: 0; }
+  .mx-head h1 { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: clamp(2rem, 4.2vw, 3rem); line-height: 1.08; margin: 0; text-wrap: balance; max-width: 26ch; }
+  .mx-lede { font-size: var(--cds-font-size-heading); color: var(--color-fg-muted); max-width: 60ch; margin: 0; line-height: 1.5; }
+  .mx-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr)); gap: var(--cds-gap-lg); margin-top: var(--cds-gap-md); }
+  .mx-kpi { border-top: 2px solid var(--color-fg); padding-top: var(--cds-pad-sm); display: grid; gap: var(--cds-gap-xs); }
+  .mx-kpi .v { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: clamp(2rem, 3.4vw, 2.6rem); line-height: 1.05; font-variant-numeric: tabular-nums; }
+  .mx-kpi .l { color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); }
+
+  .mx-sec { display: grid; gap: var(--cds-gap-md); }
+  .mx-sec-head { display: grid; gap: var(--cds-gap-sm); max-width: 70ch; }
+  .mx-step { font-size: var(--cds-font-size-caption); letter-spacing: .08em; text-transform: uppercase; color: var(--color-fg-muted); margin: 0; }
+  .mx-sec h2 { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: var(--cds-font-size-title); line-height: 1.15; margin: 0; text-wrap: balance; }
+  .mx-find { margin: 0; line-height: 1.6; font-size: var(--cds-font-size-body); }
+  .mx .mx-find b { font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+  .mx-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 24rem), 1fr)); gap: var(--cds-gap-md); }
+  .mx-card { background: var(--color-panel); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: var(--cds-pad-lg); display: grid; gap: var(--cds-gap-sm); align-content: start; min-width: 0; }
+  .mx-card h3 { font-size: var(--cds-font-size-heading); font-weight: var(--cds-font-weight-medium); margin: 0; }
+  .mx-note { color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); margin: 0; line-height: 1.45; }
+  .mx-chart { position: relative; min-height: 300px; }
+  .mx-chart.tall { min-height: 470px; }
+  .mx-chart.short { min-height: 230px; }
+  .mx-chart svg { display: block; overflow: visible; }
+  .mx-chart text { fill: var(--color-fg-muted); font-size: 12px; font-family: var(--font-anthropic-sans); }
+  .mx-chart text.strong { fill: var(--color-fg); }
+  .mx-chart text.end { font-weight: 600; }
+
+  .mx-big { display: flex; align-items: baseline; gap: var(--cds-gap-md); flex-wrap: wrap; }
+  .mx-big .v { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: clamp(3rem, 7vw, 4.5rem); line-height: 1; font-variant-numeric: tabular-nums; }
+  .mx-big .l { font-size: var(--cds-font-size-heading); color: var(--color-fg-muted); max-width: 26ch; line-height: 1.35; }
+
+  .mx-tip { position: absolute; pointer-events: none; z-index: 2; background: var(--cds-surface-popover); border: 1px solid var(--cds-border); border-radius: var(--cds-radius); box-shadow: var(--cds-shadow-popover); padding: var(--cds-pad-xs) var(--cds-pad-sm); font-size: var(--cds-font-size-caption); display: grid; gap: 2px; min-width: 9rem; font-variant-numeric: tabular-nums; }
+  .mx-tip .h { color: var(--cds-text-secondary); }
+  .mx-tip .r { display: flex; align-items: center; gap: 6px; }
+  .mx-tip .r i { width: 8px; height: 8px; border-radius: 2px; flex: none; }
+  .mx-tip .r span:last-child { margin-left: auto; padding-left: 12px; font-weight: 600; }
+
+  .mx-tbl-wrap { overflow-x: auto; }
+  table.mx-tbl { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: var(--cds-font-size-body); }
+  .mx-tbl th { text-align: left; font-weight: var(--cds-font-weight-medium); color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); padding: var(--cds-pad-xs) var(--cds-pad-sm); border-bottom: 1px solid var(--color-border-line); white-space: nowrap; }
+  .mx-tbl td { padding: var(--cds-pad-sm); border-bottom: 1px solid var(--color-border-line); vertical-align: baseline; }
+  .mx-tbl .n { text-align: right; }
+  .mx-tbl td:first-child { color: var(--color-fg-muted); width: 2.5rem; }
+  .mx-tbl td.obra { font-family: var(--font-anthropic-serif); font-size: 1.1em; }
+  .mx-tbl tbody tr:last-child td { border-bottom: 0; }
+  @media (max-width: 640px) { .mx-tbl .hide-narrow { display: none; } }
+
+  .mx-fail { display: flex; align-items: center; justify-content: center; gap: .5rem; min-height: inherit; color: var(--color-fg-muted); font-size: var(--cds-font-size-caption); }
+  .mx-fail::before { content: ""; width: .375rem; height: .375rem; border-radius: 50%; background: var(--color-bad); }
+  .mx [data-dash-source-state=empty] { color: transparent; }
+  .mx [data-dash-source-state=refreshing] { opacity: .5; transition: opacity var(--cds-dur-slow); }
+
+  details.mx-notes { border-top: 1px solid var(--color-border-line); padding-top: var(--cds-pad-md); }
+  details.mx-notes summary { cursor: pointer; font-weight: var(--cds-font-weight-medium); }
+  details.mx-notes dl { display: grid; grid-template-columns: minmax(8rem, max-content) 1fr; gap: var(--cds-gap-sm) var(--cds-gap-lg); margin: var(--cds-gap-md) 0 0; max-width: 80ch; }
+  details.mx-notes dt { font-weight: var(--cds-font-weight-medium); }
+  details.mx-notes dd { margin: 0; color: var(--color-fg-muted); line-height: 1.5; }
+  @media (max-width: 560px) { details.mx-notes dl { grid-template-columns: 1fr; } details.mx-notes dd { margin-bottom: var(--cds-gap-sm); } }
+  .mx a { color: inherit; text-underline-offset: 3px; }
+  @media (prefers-reduced-motion: no-preference) {
+    .mx-chart .draw-in { animation: mx-in var(--cds-dur-slow) var(--cds-ease-out) both; }
+    @keyframes mx-in { from { opacity: 0; } to { opacity: 1; } }
+  }
+
+  .mx-waffle { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 6px; max-width: 34rem; }
+  .mx-waffle span { aspect-ratio: 1; border-radius: 4px; border: 1.5px solid var(--cds-chart-muted); max-width: 100%; }
+  .mx-waffle span.hit { border-color: transparent; }
+  .mx-cmp { display: grid; gap: var(--cds-gap-sm); margin-top: var(--cds-gap-lg); }
+  .mx-cmp-row { display: grid; grid-template-columns: 8.5rem 1fr 3.5rem; align-items: center; gap: var(--cds-gap-sm); font-size: var(--cds-font-size-caption); }
+  .mx-cmp-row .bar { height: 14px; border-radius: 3px; background: var(--cds-chart-grid); position: relative; overflow: hidden; }
+  .mx-cmp-row .bar i { position: absolute; inset: 0 auto 0 0; border-radius: 3px; }
+  .mx-cmp-row b { text-align: right; font-variant-numeric: tabular-nums; }
+  .mx-tbl td.sim { color: var(--color-ok); font-weight: 600; }
+</style>
+
+<div class="mx">
+  <header class="mx-head" id="topo">
+    <p class="mx-eyebrow">MAL Analytics · projeto de engenharia de dados</p>
+    <h1>O que o catálogo do MyAnimeList conta sobre a indústria de animação japonesa</h1>
+    <p class="mx-lede">Um pipeline que reúne quatro fontes públicas, organiza tudo num data warehouse e responde perguntas sobre notas, estúdios, adaptações e as pessoas por trás de cada título.</p>
+    <div class="mx-kpis">
+      <div class="mx-kpi"><span class="v" data-draw="val" data-fmt="int" data-source="panorama" data-field="valor" data-where="metrica=animes">—</span><span class="l">animes no catálogo</span></div>
+      <div class="mx-kpi"><span class="v" data-draw="val" data-fmt="int" data-source="panorama" data-field="valor" data-where="metrica=mangas">—</span><span class="l">mangás e light novels</span></div>
+      <div class="mx-kpi"><span class="v" data-draw="val" data-fmt="int" data-source="panorama" data-field="valor" data-where="metrica=dubladores">—</span><span class="l">dubladores de todos os idiomas</span></div>
+      <div class="mx-kpi"><span class="v" data-draw="val" data-fmt="int" data-source="panorama" data-field="valor" data-where="metrica=episodios">—</span><span class="l">episódios com data de exibição</span></div>
+    </div>
+  </header>
+
+  <section class="mx-sec" id="notas">
+    <div class="mx-sec-head">
+      <p class="mx-step">Avaliações</p>
+      <h2>As notas estão subindo, principalmente entre os piores títulos</h2>
+      <p class="mx-find">A nota média dos lançamentos ficou parada por anos e depois subiu de <b data-draw="val" data-fmt="d2" data-source="notas_por_ano" data-field="nota_media" data-where="ano=2017">—</b> em 2017 para <b data-draw="val" data-fmt="d2" data-source="notas_por_ano" data-field="nota_media" data-where="ano=2026">—</b> em 2026. O piso andou mais que o teto: os 10% piores títulos foram de <b data-draw="val" data-fmt="d2" data-source="notas_por_ano" data-field="p10" data-where="ano=2017">—</b> para <b data-draw="val" data-fmt="d2" data-source="notas_por_ano" data-field="p10" data-where="ano=2026">—</b>.</p>
+    </div>
+    <div class="mx-card">
+      <h3>Nota média dos lançamentos por ano</h3>
+      <p class="mx-note">A faixa vai dos 10% piores aos 10% melhores títulos de cada ano. Escala de 1 a 10.</p>
+      <div class="mx-chart dash-skeleton" id="grafico-notas" data-draw="ch-notas" data-source="notas_por_ano"></div>
+    </div>
+  </section>
+
+  <section class="mx-sec" id="origem">
+    <div class="mx-sec-head">
+      <p class="mx-step">Catálogo</p>
+      <h2>A história original está perdendo espaço para as adaptações</h2>
+      <p class="mx-find">Em 2016, <b data-draw="val" data-fmt="pct" data-source="origem_por_ano" data-field="original" data-where="ano=2016">—</b> dos títulos de cada temporada eram histórias originais. Em 2026, são <b data-draw="val" data-fmt="pct" data-source="origem_por_ano" data-field="original" data-where="ano=2026">—</b>, enquanto as adaptações de mangá chegaram a <b data-draw="val" data-fmt="pct" data-source="origem_por_ano" data-field="manga" data-where="ano=2026">—</b>.</p>
+    </div>
+    <div class="mx-card">
+      <h3>Origem dos títulos lançados por ano</h3>
+      <p class="mx-note">Média das temporadas com 50 ou mais títulos avaliados. O restante são jogos, novels visuais e outras fontes.</p>
+      <div class="mx-chart dash-skeleton" id="grafico-origem" data-draw="ch-origem" data-source="origem_por_ano"></div>
+    </div>
+  </section>
+
+  <section class="mx-sec" id="adaptacoes">
+    <div class="mx-sec-head">
+      <p class="mx-step">Adaptações</p>
+      <h2>O anime raramente supera a obra original</h2>
+    </div>
+    <div class="mx-big">
+      <span class="v" data-draw="val" data-fmt="pct" data-source="adaptacao_resumo" data-field="pct_anime_melhor" data-row="0">—</span>
+      <span class="l">das adaptações tiveram nota maior que o mangá ou a light novel de origem</span>
+    </div>
+    <p class="mx-find" style="max-width: 70ch">Em <b data-draw="val" data-fmt="int" data-source="adaptacao_resumo" data-field="adaptacoes" data-row="0">—</b> animes com uma única obra de origem, a diferença mediana é de <b data-draw="val" data-fmt="d2" data-source="adaptacao_resumo" data-field="diferenca_mediana" data-row="0">—</b> ponto, e <b data-draw="val" data-fmt="pct" data-source="adaptacao_resumo" data-field="pct_empate" data-row="0">—</b> ficam praticamente empatados com o original. Parte da diferença vem de quem vota: as notas de mangá são dadas por leitores, um público menor e mais engajado.</p>
+    <div class="mx-grid">
+      <div class="mx-card">
+        <h3>Diferença mediana por tipo de obra</h3>
+        <p class="mx-note">Nota do anime menos nota do original. Light novel é o original mais difícil de superar.</p>
+        <div class="mx-chart short dash-skeleton" id="grafico-origem-adaptacao" data-draw="ch-adapt-origem" data-source="adaptacao_por_origem"></div>
+      </div>
+      <div class="mx-card">
+        <h3>Quais estúdios ficam mais perto do original</h3>
+        <p class="mx-note">Diferença média, estúdios com 30 ou mais adaptações. Em destaque, os cinco mais fiéis à nota do original.</p>
+        <div class="mx-chart tall dash-skeleton" id="grafico-estudios-adaptacao" data-draw="ch-adapt-estudio" data-source="adaptacao_por_estudio"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="mx-sec" id="estudios">
+    <div class="mx-sec-head">
+      <p class="mx-step">Estúdios</p>
+      <h2>Entre os grandes estúdios, a Kyoto Animation é a mais regular</h2>
+      <p class="mx-find">Olhando a nota mediana, que não é puxada por um único sucesso, quem lidera entre os estúdios com mais de 100 títulos é a <b data-draw="val" data-fmt="text" data-source="estudios" data-field="estudio" data-row="0">—</b>, com <b data-draw="val" data-fmt="d2" data-source="estudios" data-field="nota_mediana" data-row="0">—</b>, seguida pela <b data-draw="val" data-fmt="text" data-source="estudios" data-field="estudio" data-row="1">—</b>, com <b data-draw="val" data-fmt="d2" data-source="estudios" data-field="nota_mediana" data-row="1">—</b>.</p>
+    </div>
+    <div class="mx-card">
+      <h3>Nota mediana dos estúdios com 100 ou mais títulos</h3>
+      <p class="mx-note">Os dez primeiros. Passe o mouse para ver o título mais bem avaliado de cada estúdio.</p>
+      <div class="mx-chart dash-skeleton" id="grafico-estudios" data-draw="ch-estudios" data-source="estudios"></div>
+    </div>
+  </section>
+
+  <section class="mx-sec" id="pessoas">
+    <div class="mx-sec-head">
+      <p class="mx-step">Pessoas</p>
+      <h2>As vozes mais presentes do anime</h2>
+      <p class="mx-find"><b data-draw="val" data-fmt="text" data-source="dubladores" data-field="dublador" data-row="0">—</b> deu voz a <b data-draw="val" data-fmt="int" data-source="dubladores" data-field="personagens" data-row="0">—</b> personagens, o maior número entre os dubladores japoneses. Entre os dez mais ativos, quem mais fez protagonistas é <b data-draw="val" data-fmt="text" data-source="mais_protagonistas" data-field="dublador" data-row="0">—</b>: <b data-draw="val" data-fmt="int" data-source="mais_protagonistas" data-field="protagonistas" data-row="0">—</b>.</p>
+    </div>
+    <div class="mx-card">
+      <h3>Dubladores japoneses com mais personagens</h3>
+      <p class="mx-note">Ao lado de cada barra, o personagem mais querido pelo público entre os que a pessoa dublou. Em destaque, quem mais fez protagonistas.</p>
+      <div class="mx-chart tall dash-skeleton" id="grafico-dubladores" data-draw="ch-vozes" data-source="dubladores mais_protagonistas"></div>
+    </div>
+  </section>
+
+  <section class="mx-sec" id="episodios">
+    <div class="mx-sec-head">
+      <p class="mx-step">Formato</p>
+      <h2>O episódio encolheu e depois voltou</h2>
+      <p class="mx-find">A duração média dos episódios caiu de <b data-draw="val" data-fmt="d1" data-source="duracao_periodos" data-field="minutos" data-where="periodo=1975–1989">—</b> minutos (1975–1989) para <b data-draw="val" data-fmt="d1" data-source="duracao_periodos" data-field="minutos" data-where="periodo=2013–2016">—</b> minutos no auge das séries curtas (2013–2016), e voltou a <b data-draw="val" data-fmt="d1" data-source="duracao_periodos" data-field="minutos" data-where="periodo=2017–2019">—</b> minutos.</p>
+    </div>
+    <div class="mx-card">
+      <h3>Duração média do episódio, em minutos</h3>
+      <p class="mx-note">Ponderada pelo número de episódios de cada ano. A base de episódios tem pouca cobertura a partir de 2020, por isso o gráfico para em 2019.</p>
+      <div class="mx-chart dash-skeleton" id="grafico-episodios" data-draw="ch-episodios" data-source="episodios"></div>
+    </div>
+  </section>
+
+  <section class="mx-sec" id="sem-anime">
+    <div class="mx-sec-head">
+      <p class="mx-step">Oportunidades</p>
+      <h2>Obras muito lidas que ainda não viraram anime</h2>
+      <p class="mx-find">A mais lida é <b data-draw="val" data-fmt="text" data-source="sem_anime" data-field="obra" data-row="0">—</b>, com <b data-draw="val" data-fmt="compact" data-source="sem_anime" data-field="leitores" data-row="0">—</b> leitores no MyAnimeList. A de maior nota é <b data-draw="val" data-fmt="text" data-source="sem_anime_maior_nota" data-field="obra" data-row="0">—</b>: <b data-draw="val" data-fmt="d2" data-source="sem_anime_maior_nota" data-field="nota" data-row="0">—</b>.</p>
+    </div>
+    <div class="mx-card">
+      <h3>As mais populares sem nenhuma adaptação em anime</h3>
+      <p class="mx-note">Obras com nota 7,5 ou mais e pelo menos mil votos, sem qualquer ligação com anime.</p>
+      <div class="mx-tbl-wrap">
+        <table class="mx-tbl" id="tabela-sem-anime" data-source="sem_anime" data-row-key="posicao">
+          <thead>
+            <tr>
+              <th data-field="posicao">#</th>
+              <th data-field="obra">Obra</th>
+              <th data-field="autor" class="hide-narrow">Autoria</th>
+              <th data-field="inicio" class="n hide-narrow">Início</th>
+              <th data-field="nota" class="n">Nota</th>
+              <th data-field="leitores" class="n">Leitores</th>
+            </tr>
+          </thead>
+          <tbody data-draw="tbl-sem-anime"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="mx-sec" id="recomendador">
+    <div class="mx-sec-head">
+      <p class="mx-step">Inteligência artificial</p>
+      <h2>Um recomendador que já conhecia a minha fila</h2>
+      <p class="mx-find">O projeto inclui um modelo de recomendação que lê os gêneros, temas, estúdios e a época dos animes que avaliei bem e sugere o que assistir. Das <b data-draw="val" data-fmt="int" data-source="acerto_recomendador" data-field="total" data-row="0">—</b> primeiras sugestões, <b data-draw="val" data-fmt="int" data-source="acerto_recomendador" data-field="acertos" data-row="0">—</b> já estavam na minha lista de "quero assistir", que tem <b data-draw="val" data-fmt="int" data-source="recomendador_base" data-field="fila_quero_assistir" data-row="0">—</b> títulos. Sorteando no mesmo catálogo de <b data-draw="val" data-fmt="int" data-source="recomendador_base" data-field="catalogo_candidatos" data-row="0">—</b> animes, o acerto esperado seria de <b data-draw="val" data-fmt="pct" data-source="acerto_recomendador" data-field="acaso" data-row="0">—</b>.</p>
+    </div>
+    <div class="mx-grid">
+      <div class="mx-card">
+        <h3>Acerto nas primeiras sugestões</h3>
+        <p class="mx-note">Cada quadrado é uma sugestão, na ordem do modelo. Preenchido: o título já estava na minha fila.</p>
+        <div class="mx-chart short dash-skeleton" id="grafico-recomendador" data-draw="ch-recs" data-source="recomendacoes acerto_recomendador"></div>
+      </div>
+      <div class="mx-card">
+        <h3>As dez primeiras sugestões</h3>
+        <p class="mx-note">Ao lado, o título da minha lista que levou a cada sugestão.</p>
+        <div class="mx-tbl-wrap">
+          <table class="mx-tbl" id="tabela-recomendacoes" data-source="recomendacoes" data-row-key="posicao">
+            <thead>
+              <tr>
+                <th data-field="posicao">#</th>
+                <th data-field="titulo">Sugestão</th>
+                <th data-field="porque_gostou_de" class="hide-narrow">Porque gostei de</th>
+                <th data-field="ja_na_fila">Na fila</th>
+              </tr>
+            </thead>
+            <tbody data-draw="tbl-recs"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <details class="mx-notes" id="metodo">
+    <summary>Como os dados foram reunidos</summary>
+    <dl>
+      <dt>Fontes</dt>
+      <dd>API oficial do MyAnimeList (animes, mangás e notas), AniList (elenco, equipe e a obra de origem de cada anime), Kitsu (guia de episódios) e o anime-offline-database (ligação entre os sites). Primeira carga entre 1º e 5 de novembro de 2026; dados desta página atualizados em <span data-meta="generated_at">—</span>.</dd>
+      <dt>Pipeline</dt>
+      <dd>Python para a coleta, respeitando o limite de requisições de cada API; DuckDB como data warehouse; dbt para modelar e testar os dados em camadas. Código aberto em <a href="https://github.com/GabrielKSG7/MAL-ANALYTICS" target="_blank" rel="noopener">github.com/GabrielKSG7/MAL-ANALYTICS</a>.</dd>
+      <dt>Nota mediana</dt>
+      <dd>O valor do meio quando os títulos são ordenados pela nota. Diferente da média, não é puxada por poucos sucessos ou fracassos.</dd>
+      <dt>Adaptações</dt>
+      <dd>Comparação entre a nota do anime e a da obra que ele adapta, só para animes com uma única obra de origem. "Praticamente empatado" significa diferença de até 0,25 ponto.</dd>
+      <dt>Recomendador</dt>
+      <dd>Modelo de conteúdo: cada anime vira um vetor com gêneros, temas, estúdio, tipo de obra original e década, e as sugestões são os títulos mais parecidos com os que recebi nota alta. Os títulos que já assisti ficam de fora. Com dados de outros usuários, o mesmo código combina esse modelo com filtragem colaborativa.</dd>
+      <dt>O que ficou de fora</dt>
+      <dd>Títulos sem nota, episódios sem data e as edições de antes de 1995 no gráfico de notas, que têm poucos títulos por ano.</dd>
+    </dl>
+  </details>
+</div>
+
+<script>
+(() => {
+  const nf = (o) => new Intl.NumberFormat('pt-BR', o);
+  const minus = (s) => s.replace('-', '−');
+  const fmt = {
+    int: (v) => nf().format(v),
+    compact: (v) => nf({ notation: 'compact', maximumFractionDigits: 0 }).format(v),
+    d1: (v) => minus(nf({ minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(v)),
+    d2: (v) => minus(nf({ minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v)),
+    sd2: (v) => (v > 0 ? '+' : '') + minus(nf({ minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v)),
+    pct: (v) => nf({ style: 'percent', maximumFractionDigits: 0 }).format(v),
+  };
+  const BAD = ['error', 'connect', 'declined', 'missing'];
+
+  // Prepara a caixa de um gráfico: devolve as linhas de cada dataset, ou null enquanto carrega / se falhou.
+  function prep(el, ids) {
+    const states = ids.map((id) => dash.data(id).status);
+    el.replaceChildren();
+    if (states.some((s) => BAD.includes(s))) {
+      el.classList.remove('dash-skeleton');
+      const f = document.createElement('div');
+      f.className = 'mx-fail';
+      f.textContent = 'Falha ao carregar';
+      el.append(f);
+      return null;
+    }
+    if (states.some((s) => s !== 'ok')) { el.classList.add('dash-skeleton'); return null; }
+    el.classList.remove('dash-skeleton');
+    return ids.map((id) => dash.data(id).data);
+  }
+
+  function svgIn(el, w, h) {
+    return d3.select(el).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${w} ${h}`).attr('class', 'draw-in');
+  }
+
+  function textWidth(svg, strings, cls) {
+    const t = svg.append('text').attr('class', cls || null);
+    let m = 0;
+    for (const s of strings) { t.text(s); m = Math.max(m, t.node().getComputedTextLength()); }
+    t.remove();
+    return m;
+  }
+
+  // Tooltip dentro da caixa do gráfico. lines: [{color?, name, value}]
+  function tooltip(el) {
+    const t = document.createElement('div');
+    t.className = 'mx-tip';
+    t.hidden = true;
+    el.append(t);
+    return {
+      show(head, lines, x, y) {
+        t.replaceChildren();
+        const h = document.createElement('div'); h.className = 'h'; h.textContent = head; t.append(h);
+        for (const l of lines) {
+          const r = document.createElement('div'); r.className = 'r';
+          if (l.color) { const i = document.createElement('i'); i.style.background = l.color; r.append(i); }
+          const n = document.createElement('span'); n.textContent = l.name;
+          const v = document.createElement('span'); v.textContent = l.value;
+          r.append(n, v); t.append(r);
+        }
+        t.hidden = false;
+        const W = el.clientWidth, tw = t.offsetWidth, th = t.offsetHeight;
+        let left = x + 14; if (left + tw > W) left = x - tw - 14; left = Math.max(0, left);
+        let top = y - th - 10; if (top < 0) top = y + 14;
+        t.style.left = left + 'px'; t.style.top = top + 'px';
+      },
+      hide() { t.hidden = true; },
+    };
+  }
+
+  // Converte a posição do ponteiro para coordenadas do viewBox do SVG.
+  function pointer(evt, svgNode, el) {
+    const [vx, vy] = d3.pointer(evt, svgNode);
+    const box = svgNode.getBoundingClientRect(), host = el.getBoundingClientRect();
+    const k = box.width / svgNode.viewBox.baseVal.width;
+    return { vx, vy, px: vx * k + (box.left - host.left), py: vy * k + (box.top - host.top) };
+  }
+
+  // Afasta rótulos de fim de linha para não se sobreporem.
+  function spread(labels, gap, min, max) {
+    labels.sort((a, b) => a.y - b.y);
+    for (let i = 1; i < labels.length; i++) if (labels[i].y - labels[i - 1].y < gap) labels[i].y = labels[i - 1].y + gap;
+    const over = labels.length ? labels[labels.length - 1].y - max : 0;
+    if (over > 0) labels.forEach((l) => (l.y -= over));
+    labels.forEach((l) => (l.y = Math.max(min, l.y)));
+    return labels;
+  }
+
+  window.mx = { fmt, prep, svgIn, textWidth, tooltip, pointer, spread, BAD };
+
+  dash.calc('duracao_periodos', {
+    inputs: ['episodios'],
+    title: 'Duração média por período',
+    description: 'Duração média do episódio em cada período, ponderada pelo número de episódios de cada ano.',
+    fn: (episodios) => [['1975–1989', 1975, 1989], ['2013–2016', 2013, 2016], ['2017–2019', 2017, 2019]].map(([periodo, a, b]) => {
+      const rs = episodios.filter((r) => +r.ano >= a && +r.ano <= b);
+      const n = d3.sum(rs, (r) => +r.episodios);
+      return { periodo, minutos: Math.round((d3.sum(rs, (r) => +r.duracao_media_min * +r.episodios) / n) * 10) / 10 };
+    }),
+  });
+
+  dash.calc('mais_protagonistas', {
+    inputs: ['dubladores'],
+    title: 'Quem mais fez protagonistas',
+    description: 'Entre os dubladores da lista, quem tem mais papéis principais.',
+    fn: (dubladores) => [...dubladores].sort((a, b) => +b.protagonistas - +a.protagonistas).slice(0, 1),
+  });
+
+  dash.calc('sem_anime_maior_nota', {
+    inputs: ['sem_anime'],
+    title: 'Maior nota entre as obras sem anime',
+    description: 'A obra de maior nota entre as mais lidas que ainda não viraram anime.',
+    fn: (sem_anime) => [...sem_anime].sort((a, b) => +b.nota - +a.nota).slice(0, 1),
+  });
+
+  dash.draw('val', (el) => {
+    const d = dash.data(el.dataset.source);
+    if (d.status !== 'ok') { el.textContent = '—'; return; }
+    const data = Array.isArray(d.data) ? d.data : [];
+    const pairs = (el.getAttribute('data-where') || '').split('&').filter(Boolean).map((p) => p.split('=').map(decodeURIComponent));
+    const row = el.hasAttribute('data-row') ? data[+el.getAttribute('data-row')] : data.find((r) => pairs.every(([k, v]) => String(r[k]) === v));
+    const v = row ? Number(row[el.dataset.field]) : NaN;
+    if (el.dataset.fmt === 'text') { el.textContent = row && row[el.dataset.field] != null ? String(row[el.dataset.field]) : '—'; return; }
+    el.textContent = Number.isFinite(v) ? (fmt[el.dataset.fmt] || fmt.int)(v) : '—';
+  });
+})();
+</script>
+
+<script>
+// Notas por ano: faixa p10–p90 e linha da média.
+dash.draw('ch-notas', (el) => {
+  const got = mx.prep(el, ['notas_por_ano']);
+  if (!got) return;
+  const rows = got[0].map((r) => ({ ano: +r.ano, media: +r.nota_media, p10: +r.p10, p90: +r.p90 })).sort((a, b) => a.ano - b.ano);
+  const W = Math.max(320, el.clientWidth), H = 300;
+  const svg = mx.svgIn(el, W, H);
+  const y = d3.scaleLinear([d3.min(rows, (r) => r.p10) - 0.2, d3.max(rows, (r) => r.p90) + 0.2], [H - 28, 12]).nice();
+  const yTicks = y.ticks(5);
+  const left = mx.textWidth(svg, yTicks.map((t) => mx.fmt.d1(t))) + 10;
+  const last = rows[rows.length - 1];
+  const endLabel = `média ${mx.fmt.d2(last.media)}`;
+  const right = mx.textWidth(svg, [endLabel], 'end') + 14;
+  const x = d3.scaleLinear([rows[0].ano, last.ano], [left, W - right]);
+  const c = dash.colors[0];
+  svg.append('g').selectAll('line').data(yTicks).join('line')
+    .attr('x1', left).attr('x2', W - right).attr('y1', (t) => y(t)).attr('y2', (t) => y(t))
+    .attr('stroke', 'var(--cds-chart-grid)');
+  svg.append('g').selectAll('text').data(yTicks).join('text')
+    .attr('x', left - 8).attr('y', (t) => y(t)).attr('dy', '0.32em').attr('text-anchor', 'end').text((t) => mx.fmt.d1(t));
+  const xt = x.ticks(Math.max(3, Math.floor((W - left - right) / 90))).filter((t) => Number.isInteger(t));
+  svg.append('g').selectAll('text').data(xt).join('text')
+    .attr('x', (t) => x(t)).attr('y', H - 6).attr('text-anchor', 'middle').text((t) => String(t));
+  svg.append('path').datum(rows)
+    .attr('d', d3.area().x((r) => x(r.ano)).y0((r) => y(r.p10)).y1((r) => y(r.p90)))
+    .attr('fill', c).attr('fill-opacity', 0.14);
+  svg.append('path').datum(rows)
+    .attr('d', d3.line().x((r) => x(r.ano)).y((r) => y(r.media)))
+    .attr('fill', 'none').attr('stroke', c).attr('stroke-width', 2).attr('stroke-linecap', 'round').attr('stroke-linejoin', 'round');
+  svg.append('circle').attr('cx', x(last.ano)).attr('cy', y(last.media)).attr('r', 4).attr('fill', c);
+  svg.append('text').attr('class', 'strong end').attr('x', x(last.ano) + 8).attr('y', y(last.media)).attr('dy', '0.32em').text(endLabel);
+  const tip = mx.tooltip(el);
+  const rule = svg.append('line').attr('stroke', 'var(--cds-chart-reference)').attr('y1', 12).attr('y2', H - 28).style('opacity', 0);
+  const dot = svg.append('circle').attr('r', 4).attr('fill', c).style('opacity', 0);
+  svg.append('rect').attr('x', left).attr('y', 0).attr('width', W - left - right).attr('height', H).attr('fill', 'transparent')
+    .on('pointermove', (e) => {
+      const p = mx.pointer(e, svg.node(), el);
+      const yr = Math.round(x.invert(p.vx));
+      const r = rows.find((d) => d.ano === yr); if (!r) return;
+      rule.attr('x1', x(r.ano)).attr('x2', x(r.ano)).style('opacity', 1);
+      dot.attr('cx', x(r.ano)).attr('cy', y(r.media)).style('opacity', 1);
+      tip.show(String(r.ano), [
+        { color: c, name: 'Nota média', value: mx.fmt.d2(r.media) },
+        { name: '10% melhores a partir de', value: mx.fmt.d2(r.p90) },
+        { name: '10% piores até', value: mx.fmt.d2(r.p10) },
+      ], p.px, p.py);
+    })
+    .on('pointerleave', () => { tip.hide(); rule.style('opacity', 0); dot.style('opacity', 0); });
+});
+</script>
+
+<script>
+// Origem dos títulos por ano: três linhas com rótulo no fim.
+dash.draw('ch-origem', (el) => {
+  const got = mx.prep(el, ['origem_por_ano']);
+  if (!got) return;
+  const rows = got[0].map((r) => ({ ano: +r.ano, original: +r.original, manga: +r.manga, light_novel: +r.light_novel })).sort((a, b) => a.ano - b.ano);
+  const series = [
+    { key: 'original', name: 'Original', color: dash.colors[0] },
+    { key: 'manga', name: 'Mangá', color: dash.colors[1] },
+    { key: 'light_novel', name: 'Light novel', color: dash.colors[2] },
+  ];
+  const W = Math.max(320, el.clientWidth), H = 300;
+  const svg = mx.svgIn(el, W, H);
+  const y = d3.scaleLinear([0, d3.max(rows, (r) => Math.max(r.original, r.manga, r.light_novel)) * 1.08], [H - 28, 12]).nice();
+  const yTicks = y.ticks(5);
+  const left = mx.textWidth(svg, yTicks.map((t) => mx.fmt.pct(t))) + 10;
+  const last = rows[rows.length - 1];
+  const labels = series.map((s) => ({ ...s, text: `${s.name} ${mx.fmt.pct(last[s.key])}` }));
+  const right = mx.textWidth(svg, labels.map((l) => l.text), 'end') + 16;
+  const x = d3.scaleLinear([rows[0].ano, last.ano], [left, W - right]);
+  svg.append('g').selectAll('line').data(yTicks).join('line')
+    .attr('x1', left).attr('x2', W - right).attr('y1', (t) => y(t)).attr('y2', (t) => y(t)).attr('stroke', 'var(--cds-chart-grid)');
+  svg.append('g').selectAll('text').data(yTicks).join('text')
+    .attr('x', left - 8).attr('y', (t) => y(t)).attr('dy', '0.32em').attr('text-anchor', 'end').text((t) => mx.fmt.pct(t));
+  const xt = x.ticks(Math.max(3, Math.floor((W - left - right) / 80))).filter((t) => Number.isInteger(t));
+  svg.append('g').selectAll('text').data(xt).join('text')
+    .attr('x', (t) => x(t)).attr('y', H - 6).attr('text-anchor', 'middle').text((t) => String(t));
+  for (const s of series) {
+    svg.append('path').datum(rows)
+      .attr('d', d3.line().x((r) => x(r.ano)).y((r) => y(r[s.key])))
+      .attr('fill', 'none').attr('stroke', s.color).attr('stroke-width', 2).attr('stroke-linecap', 'round').attr('stroke-linejoin', 'round');
+    svg.append('circle').attr('cx', x(last.ano)).attr('cy', y(last[s.key])).attr('r', 3.5).attr('fill', s.color);
+  }
+  mx.spread(labels.map((l) => Object.assign(l, { y: y(last[l.key]) })), 16, 12, H - 30).forEach((l) => {
+    svg.append('text').attr('class', 'end').attr('x', x(last.ano) + 8).attr('y', l.y).attr('dy', '0.32em')
+      .style('fill', l.color).text(l.text);
+  });
+  const tip = mx.tooltip(el);
+  const rule = svg.append('line').attr('stroke', 'var(--cds-chart-reference)').attr('y1', 12).attr('y2', H - 28).style('opacity', 0);
+  svg.append('rect').attr('x', left).attr('y', 0).attr('width', W - left - right).attr('height', H).attr('fill', 'transparent')
+    .on('pointermove', (e) => {
+      const p = mx.pointer(e, svg.node(), el);
+      const yr = Math.round(x.invert(p.vx));
+      const r = rows.find((d) => d.ano === yr); if (!r) return;
+      rule.attr('x1', x(r.ano)).attr('x2', x(r.ano)).style('opacity', 1);
+      tip.show(String(r.ano), series.map((s) => ({ color: s.color, name: s.name, value: mx.fmt.pct(r[s.key]) })), p.px, p.py);
+    })
+    .on('pointerleave', () => { tip.hide(); rule.style('opacity', 0); });
+});
+</script>
+
+<script>
+// Barras horizontais divergentes a partir do zero (valores negativos à esquerda).
+window.mxDiverging = function (el, items, opts) {
+  const W = Math.max(300, el.clientWidth);
+  const band = opts.band || 26, top = 8, bottom = 24;
+  const H = top + bottom + items.length * band;
+  const svg = mx.svgIn(el, W, H);
+  const left = mx.textWidth(svg, items.map((d) => d.label), 'strong') + 12;
+  const valueW = mx.textWidth(svg, items.map((d) => mx.fmt.sd2(d.value))) + 10;
+  const right = 16;
+  const lo = Math.min(0, d3.min(items, (d) => d.value)), hi = Math.max(0, d3.max(items, (d) => d.value));
+  const x = d3.scaleLinear([lo, hi], [left + valueW, W - right]).nice();
+  const y = d3.scaleBand(items.map((d) => d.label), [top, H - bottom]).padding(0.28);
+  const ticks = x.ticks(Math.max(2, Math.floor((W - left - valueW) / 90)));
+  svg.append('g').selectAll('line').data(ticks).join('line')
+    .attr('x1', (t) => x(t)).attr('x2', (t) => x(t)).attr('y1', top).attr('y2', H - bottom)
+    .attr('stroke', (t) => (t === 0 ? 'var(--cds-chart-axis)' : 'var(--cds-chart-grid)'));
+  svg.append('g').selectAll('text').data(ticks).join('text')
+    .attr('x', (t) => x(t)).attr('y', H - 6).attr('text-anchor', 'middle').text((t) => mx.fmt.sd2(t).replace('+0,00', '0'));
+  svg.append('g').selectAll('text').data(items).join('text').attr('class', 'strong')
+    .attr('x', 0).attr('y', (d) => y(d.label) + y.bandwidth() / 2).attr('dy', '0.32em').text((d) => d.label);
+  const tip = mx.tooltip(el);
+  svg.append('g').selectAll('rect').data(items).join('rect')
+    .attr('x', (d) => x(Math.min(0, d.value))).attr('width', (d) => Math.abs(x(d.value) - x(0)))
+    .attr('y', (d) => y(d.label) + (y.bandwidth() - Math.min(24, y.bandwidth())) / 2).attr('height', Math.min(24, y.bandwidth())).attr('rx', 3)
+    .attr('fill', (d) => d.color)
+    .on('pointermove', function (e, d) { const p = mx.pointer(e, svg.node(), el); tip.show(d.label, opts.tipLines(d), p.px, p.py); })
+    .on('pointerleave', () => tip.hide());
+  svg.append('g').selectAll('text.v').data(items).join('text').attr('class', 'v')
+    .attr('x', (d) => (d.value < 0 ? x(d.value) - 6 : x(d.value) + 6)).attr('text-anchor', (d) => (d.value < 0 ? 'end' : 'start'))
+    .attr('y', (d) => y(d.label) + y.bandwidth() / 2).attr('dy', '0.32em').text((d) => mx.fmt.sd2(d.value));
+};
+
+dash.draw('ch-adapt-origem', (el) => {
+  const got = mx.prep(el, ['adaptacao_por_origem']);
+  if (!got) return;
+  const items = got[0].map((r) => ({ label: r.origem, value: +r.diferenca_mediana, n: +r.adaptacoes, better: +r.pct_anime_melhor, color: dash.colors[0] }))
+    .sort((a, b) => b.n - a.n);
+  mxDiverging(el, items, {
+    band: 40,
+    tipLines: (d) => [
+      { name: 'Diferença mediana', value: mx.fmt.sd2(d.value) },
+      { name: 'Anime superou o original', value: mx.fmt.pct(d.better) },
+      { name: 'Adaptações', value: mx.fmt.int(d.n) },
+    ],
+  });
+});
+
+dash.draw('ch-adapt-estudio', (el) => {
+  const got = mx.prep(el, ['adaptacao_por_estudio']);
+  if (!got) return;
+  const sorted = got[0].map((r) => ({ label: r.estudio, value: +r.diferenca_media, n: +r.adaptacoes })).sort((a, b) => b.value - a.value);
+  const items = sorted.map((d, i) => ({ ...d, color: i < 5 ? dash.colors[0] : 'var(--cds-chart-muted)' }));
+  mxDiverging(el, items, {
+    band: 22,
+    tipLines: (d) => [
+      { name: 'Diferença média', value: mx.fmt.sd2(d.value) },
+      { name: 'Adaptações', value: mx.fmt.int(d.n) },
+    ],
+  });
+});
+</script>
+
+<script>
+// Estúdios: gráfico de pontos (a escala não começa no zero, então pontos em vez de barras).
+dash.draw('ch-estudios', (el) => {
+  const got = mx.prep(el, ['estudios']);
+  if (!got) return;
+  const rows = got[0].map((r) => ({ estudio: r.estudio, nota: +r.nota_mediana, titulos: +r.titulos, membros: +r.membros, melhor: r.melhor_titulo }))
+    .sort((a, b) => b.nota - a.nota);
+  const W = Math.max(320, el.clientWidth), band = 28, top = 6, bottom = 24;
+  const H = top + bottom + rows.length * band;
+  const svg = mx.svgIn(el, W, H);
+  const left = mx.textWidth(svg, rows.map((r) => r.estudio), 'strong') + 14;
+  const countLabels = rows.map((r) => `${mx.fmt.int(r.titulos)} títulos`);
+  const right = mx.textWidth(svg, countLabels) + 16;
+  const x = d3.scaleLinear([d3.min(rows, (r) => r.nota) - 0.15, d3.max(rows, (r) => r.nota) + 0.15], [left, W - right]).nice();
+  const y = d3.scaleBand(rows.map((r) => r.estudio), [top, H - bottom]).padding(0.3);
+  const ticks = x.ticks(Math.max(3, Math.floor((W - left - right) / 80)));
+  svg.append('g').selectAll('line').data(ticks).join('line')
+    .attr('x1', (t) => x(t)).attr('x2', (t) => x(t)).attr('y1', top).attr('y2', H - bottom).attr('stroke', 'var(--cds-chart-grid)');
+  svg.append('g').selectAll('text').data(ticks).join('text')
+    .attr('x', (t) => x(t)).attr('y', H - 6).attr('text-anchor', 'middle').text((t) => mx.fmt.d1(t));
+  const cy = (r) => y(r.estudio) + y.bandwidth() / 2;
+  svg.append('g').selectAll('line.s').data(rows).join('line')
+    .attr('x1', x.range()[0]).attr('x2', (r) => x(r.nota)).attr('y1', cy).attr('y2', cy)
+    .attr('stroke', 'var(--cds-chart-grid)').attr('stroke-width', 2);
+  svg.append('g').selectAll('text.n').data(rows).join('text').attr('class', 'strong')
+    .attr('x', 0).attr('y', cy).attr('dy', '0.32em').text((r) => r.estudio);
+  svg.append('g').selectAll('text.c').data(rows).join('text')
+    .attr('x', W - right + 12).attr('y', cy).attr('dy', '0.32em').text((r, i) => countLabels[i]);
+  const tip = mx.tooltip(el);
+  svg.append('g').selectAll('circle').data(rows).join('circle')
+    .attr('cx', (r) => x(r.nota)).attr('cy', cy).attr('r', 7)
+    .attr('fill', (r, i) => (i === 0 ? dash.colors[0] : 'var(--cds-chart-muted)'))
+    .on('pointermove', function (e, r) {
+      const p = mx.pointer(e, svg.node(), el);
+      tip.show(r.estudio, [
+        { name: 'Nota mediana', value: mx.fmt.d2(r.nota) },
+        { name: 'Títulos', value: mx.fmt.int(r.titulos) },
+        { name: 'Melhor título', value: r.melhor },
+      ], p.px, p.py);
+    })
+    .on('pointerleave', () => tip.hide());
+  svg.append('g').selectAll('text.v').data(rows).join('text').attr('class', 'strong')
+    .attr('x', (r) => x(r.nota)).attr('y', (r) => cy(r) - 12).attr('text-anchor', 'middle').style('font-size', '11px')
+    .text((r) => mx.fmt.d2(r.nota));
+});
+</script>
+
+<script>
+// Dubladores: barras de personagens com o personagem mais querido ao lado.
+dash.draw('ch-vozes', (el) => {
+  const got = mx.prep(el, ['dubladores', 'mais_protagonistas']);
+  const lead = (got && got[1][0]) ? got[1][0].dublador : null;
+  if (!got) return;
+  const rows = got[0].map((r) => ({ nome: r.dublador, nativo: r.nome_japones, personagens: +r.personagens, animes: +r.animes, protagonistas: +r.protagonistas, querido: r.personagem_mais_querido }))
+    .sort((a, b) => b.personagens - a.personagens);
+  const W = Math.max(320, el.clientWidth), band = 40, top = 4, bottom = 8;
+  const H = top + bottom + rows.length * band;
+  const svg = mx.svgIn(el, W, H);
+  const narrow = W < 560;
+  const left = mx.textWidth(svg, rows.map((r) => r.nome), 'strong') + 14;
+  const tail = narrow ? 0 : mx.textWidth(svg, rows.map((r) => `${mx.fmt.int(r.personagens)}  ·  ${r.querido}`)) + 16;
+  const x = d3.scaleLinear([0, d3.max(rows, (r) => r.personagens)], [left, W - Math.max(tail, 40)]);
+  const y = d3.scaleBand(rows.map((r) => r.nome), [top, H - bottom]).padding(0.32);
+  const cy = (r) => y(r.nome) + y.bandwidth() / 2;
+  svg.append('g').selectAll('text.n').data(rows).join('text').attr('class', 'strong')
+    .attr('x', 0).attr('y', cy).attr('dy', '0.32em').text((r) => r.nome);
+  const tip = mx.tooltip(el);
+  svg.append('g').selectAll('rect').data(rows).join('rect')
+    .attr('x', left).attr('y', (r) => y(r.nome)).attr('height', y.bandwidth()).attr('rx', 3)
+    .attr('width', (r) => x(r.personagens) - left)
+    .attr('fill', (r) => (r.nome === lead ? dash.colors[1] : dash.colors[0]))
+    .on('pointermove', function (e, r) {
+      const p = mx.pointer(e, svg.node(), el);
+      tip.show(`${r.nome} · ${r.nativo}`, [
+        { name: 'Personagens', value: mx.fmt.int(r.personagens) },
+        { name: 'Protagonistas', value: mx.fmt.int(r.protagonistas) },
+        { name: 'Animes', value: mx.fmt.int(r.animes) },
+        { name: 'Mais querido', value: r.querido },
+      ], p.px, p.py);
+    })
+    .on('pointerleave', () => tip.hide());
+  svg.append('g').selectAll('text.v').data(rows).join('text')
+    .attr('x', (r) => x(r.personagens) + 8).attr('y', cy).attr('dy', '0.32em')
+    .text((r) => (narrow ? mx.fmt.int(r.personagens) : `${mx.fmt.int(r.personagens)}  ·  ${r.querido}`));
+});
+</script>
+
+<script>
+// Duração média do episódio por ano, com o ponto mais baixo destacado.
+dash.draw('ch-episodios', (el) => {
+  const got = mx.prep(el, ['episodios']);
+  if (!got) return;
+  const rows = got[0].map((r) => ({ ano: +r.ano, min: +r.duracao_media_min, n: +r.episodios })).sort((a, b) => a.ano - b.ano);
+  const W = Math.max(320, el.clientWidth), H = 300;
+  const svg = mx.svgIn(el, W, H);
+  const c = dash.colors[0];
+  const y = d3.scaleLinear([d3.min(rows, (r) => r.min) - 1, d3.max(rows, (r) => r.min) + 1], [H - 28, 14]).nice();
+  const yTicks = y.ticks(5);
+  const left = mx.textWidth(svg, yTicks.map((t) => mx.fmt.int(t))) + 10;
+  const x = d3.scaleLinear(d3.extent(rows, (r) => r.ano), [left, W - 16]);
+  const gid = 'mx-ep-grad';
+  const grad = svg.append('defs').append('linearGradient').attr('id', gid).attr('x1', 0).attr('x2', 0).attr('y1', 0).attr('y2', 1);
+  [[0, 0.26], [0.25, 0.16], [0.5, 0.08], [0.75, 0.03], [1, 0]].forEach(([o, a]) =>
+    grad.append('stop').attr('offset', o).attr('stop-opacity', a).style('stop-color', c));
+  svg.append('g').selectAll('line').data(yTicks).join('line')
+    .attr('x1', left).attr('x2', W - 16).attr('y1', (t) => y(t)).attr('y2', (t) => y(t)).attr('stroke', 'var(--cds-chart-grid)');
+  svg.append('g').selectAll('text').data(yTicks).join('text')
+    .attr('x', left - 8).attr('y', (t) => y(t)).attr('dy', '0.32em').attr('text-anchor', 'end').text((t) => mx.fmt.int(t));
+  const xt = x.ticks(Math.max(3, Math.floor((W - left) / 80))).filter((t) => Number.isInteger(t));
+  svg.append('g').selectAll('text').data(xt).join('text')
+    .attr('x', (t) => x(t)).attr('y', H - 6).attr('text-anchor', 'middle').text((t) => String(t));
+  svg.append('path').datum(rows).attr('fill', `url(#${gid})`)
+    .attr('d', d3.area().x((r) => x(r.ano)).y0(y.range()[0]).y1((r) => y(r.min)));
+  svg.append('path').datum(rows).attr('fill', 'none').attr('stroke', c).attr('stroke-width', 2)
+    .attr('stroke-linecap', 'round').attr('stroke-linejoin', 'round')
+    .attr('d', d3.line().x((r) => x(r.ano)).y((r) => y(r.min)));
+  const low = rows.reduce((a, b) => (b.min < a.min ? b : a));
+  svg.append('circle').attr('cx', x(low.ano)).attr('cy', y(low.min)).attr('r', 4.5).attr('fill', c);
+  svg.append('text').attr('class', 'strong end').attr('x', x(low.ano)).attr('y', y(low.min) + 20).attr('text-anchor', 'middle')
+    .text(`${low.ano}: ${mx.fmt.d1(low.min)} min`);
+  const tip = mx.tooltip(el);
+  const dot = svg.append('circle').attr('r', 4).attr('fill', c).style('opacity', 0);
+  svg.append('rect').attr('x', left).attr('y', 0).attr('width', W - left - 16).attr('height', H).attr('fill', 'transparent')
+    .on('pointermove', (e) => {
+      const p = mx.pointer(e, svg.node(), el);
+      const r = rows.find((d) => d.ano === Math.round(x.invert(p.vx))); if (!r) return;
+      dot.attr('cx', x(r.ano)).attr('cy', y(r.min)).style('opacity', 1);
+      tip.show(String(r.ano), [
+        { name: 'Duração média', value: `${mx.fmt.d1(r.min)} min` },
+        { name: 'Episódios exibidos', value: mx.fmt.int(r.n) },
+      ], p.px, p.py);
+    })
+    .on('pointerleave', () => { tip.hide(); dot.style('opacity', 0); });
+});
+</script>
+
+<script>
+// Tabela das obras populares sem anime.
+dash.draw('tbl-sem-anime', (tbody) => {
+  const d = dash.data('sem_anime');
+  tbody.replaceChildren();
+  if (d.status !== 'ok') return;
+  const rows = [...d.data].sort((a, b) => +a.posicao - +b.posicao);
+  for (const r of rows) {
+    const tr = document.createElement('tr');
+    tr.dataset.key = r.posicao;
+    const cells = [
+      [r.posicao, ''],
+      [r.obra, 'obra'],
+      [r.autor, 'hide-narrow'],
+      [r.inicio, 'n hide-narrow'],
+      [mx.fmt.d2(+r.nota), 'n'],
+      [mx.fmt.int(+r.leitores), 'n'],
+    ];
+    for (const [text, cls] of cells) {
+      const td = document.createElement('td');
+      if (cls) td.className = cls;
+      td.textContent = text;
+      tr.append(td);
+    }
+    tbody.append(tr);
+  }
+});
+</script>
+
+<script>
+dash.calc('acerto_recomendador', {
+  inputs: ['recomendacoes', 'recomendador_base'],
+  title: 'Acerto do recomendador',
+  description: 'Quantas sugestões já estavam na fila de quero assistir, contra o acerto esperado num sorteio no mesmo catálogo.',
+  fn: (recomendacoes, recomendador_base) => {
+    const base = recomendador_base[0] || {};
+    const acertos = recomendacoes.filter((r) => r.ja_na_fila === 'sim').length;
+    return [{ total: recomendacoes.length, acertos, pct: acertos / recomendacoes.length,
+              acaso: +base.fila_quero_assistir / +base.catalogo_candidatos }];
+  },
+});
+
+// Quadrados das sugestões + comparação com o acaso.
+dash.draw('ch-recs', (el) => {
+  const got = mx.prep(el, ['recomendacoes', 'acerto_recomendador']);
+  if (!got) return;
+  const recs = [...got[0]].sort((a, b) => +a.posicao - +b.posicao);
+  const res = got[1][0];
+  const waffle = document.createElement('div');
+  waffle.className = 'mx-waffle draw-in';
+  const tip = mx.tooltip(el);
+  for (const r of recs) {
+    const sq = document.createElement('span');
+    if (r.ja_na_fila === 'sim') { sq.className = 'hit'; sq.style.background = dash.colors[0]; }
+    sq.addEventListener('pointermove', (e) => {
+      const host = el.getBoundingClientRect();
+      tip.show('#' + r.posicao + ' ' + r.titulo, [
+        { name: 'Porque gostei de', value: r.porque_gostou_de },
+        { name: 'Já estava na fila', value: r.ja_na_fila },
+      ], e.clientX - host.left, e.clientY - host.top);
+    });
+    sq.addEventListener('pointerleave', () => tip.hide());
+    waffle.append(sq);
+  }
+  const cmp = document.createElement('div');
+  cmp.className = 'mx-cmp draw-in';
+  for (const [label, value, color] of [['Recomendador', res.pct, dash.colors[0]], ['Sorteio ao acaso', res.acaso, 'var(--cds-chart-muted)']]) {
+    const row = document.createElement('div'); row.className = 'mx-cmp-row';
+    const name = document.createElement('span'); name.textContent = label;
+    const bar = document.createElement('div'); bar.className = 'bar';
+    const fill = document.createElement('i'); fill.style.width = (Math.max(0, Math.min(1, value)) * 100) + '%'; fill.style.background = color;
+    bar.append(fill);
+    const v = document.createElement('b'); v.textContent = mx.fmt.pct(value);
+    row.append(name, bar, v); cmp.append(row);
+  }
+  el.prepend(waffle, cmp);
+});
+
+// Tabela das dez primeiras sugestões.
+dash.draw('tbl-recs', (tbody) => {
+  const d = dash.data('recomendacoes');
+  tbody.replaceChildren();
+  if (d.status !== 'ok') return;
+  const rows = [...d.data].sort((a, b) => +a.posicao - +b.posicao).slice(0, 10);
+  for (const r of rows) {
+    const tr = document.createElement('tr');
+    tr.dataset.key = r.posicao;
+    for (const [text, cls] of [[r.posicao, ''], [r.titulo, 'obra'], [r.porque_gostou_de, 'hide-narrow'], [r.ja_na_fila, r.ja_na_fila === 'sim' ? 'sim' : '']]) {
+      const td = document.createElement('td');
+      if (cls) td.className = cls;
+      td.textContent = text;
+      tr.append(td);
+    }
+    tbody.append(tr);
+  }
+});
+</script>
+
+</main>
+<footer class="site-foot">
+  <div class="site-foot-in">
+    <span>Gabriel Silva Grande · <a href="https://github.com/GabrielKSG7" target="_blank" rel="noopener">github.com/GabrielKSG7</a></span>
+    <span>Projeto pessoal e educacional, sem afiliação com MyAnimeList, AniList ou Kitsu. Dados atualizados em <span data-meta="generated_at">—</span>.</span>
+  </div>
+</footer>
+</body>
+</html>

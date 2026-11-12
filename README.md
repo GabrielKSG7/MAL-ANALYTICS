@@ -1,6 +1,7 @@
 # MAL Analytics — engenharia e analytics engineering sobre o MyAnimeList
 
 [![CI](https://github.com/GabrielKSG7/MAL-ANALYTICS/actions/workflows/ci.yml/badge.svg)](https://github.com/GabrielKSG7/MAL-ANALYTICS/actions/workflows/ci.yml)
+[![Painel público](https://img.shields.io/badge/painel-p%C3%BAblico-2a78d6)](https://gabrielksg7.github.io/MAL-ANALYTICS/)
 ![Python](https://img.shields.io/badge/python-3.11%2B-blue)
 ![dbt](https://img.shields.io/badge/dbt-1.8%2B-orange)
 ![DuckDB](https://img.shields.io/badge/DuckDB-warehouse-yellow)
@@ -14,8 +15,11 @@ entrega um **dashboard** — com testes, CI e documentação.
 > analytics) with data tests, unit tests, contracts, snapshot and an incremental fact, a numpy/scipy
 > recommender with offline evaluation, and a Streamlit dashboard. Runs fully offline on synthetic data for CI.*
 
-![Visão geral do dashboard](docs/img/overview.png)
-<sub>Screenshots gerados com os dados sintéticos de demonstração (`make demo`).</sub>
+### ▶ [Ver o painel público com os dados reais](https://gabrielksg7.github.io/MAL-ANALYTICS/)
+
+[![Painel público do MAL Analytics](site/assets/preview.png)](https://gabrielksg7.github.io/MAL-ANALYTICS/)
+<sub>Página estática gerada pelo próprio pipeline (`malpipe site`) e publicada no GitHub Pages: seis
+achados, dubladores, obras sem anime e o recomendador, com os números da carga real de novembro/2026.</sub>
 
 ---
 
@@ -193,7 +197,7 @@ Detalhes: [docs/architecture.md](docs/architecture.md) · limites e termos de us
 - Cliente **GraphQL** com paginação aninhada (personagens e staff), diretivas `@include` para não rebuscar o que já veio e erro de GraphQL (HTTP 200) tratado como falha; **circuit breaker** de rede e `check-sources` para diagnóstico.
 - Kaggle carregado com o `read_csv` paralelo do DuckDB (sem passar pelo pandas), com amostragem determinística de usuários para desenvolvimento.
 
-**Modelagem (`dbt/`)** — 63 modelos + 1 snapshot, 119 testes de dados, 3 unit tests
+**Modelagem (`dbt/`)** — 63 modelos + 1 snapshot, 121 testes de dados, 3 unit tests
 - **Staging** parseia o JSON (`->>`, `from_json`, `unnest`), trata contadores que chegam como string, datas parciais do MAL (`"2015-04"`) e aplica "última extração vence".
 - **Franquias por grafo**: componentes conexos das relações sequel/prequel/side story via **CTE recursiva**.
 - **Nota bayesiana** (fórmula IMDb) e **índice de polarização** a partir da distribuição de votos ([ADR 003](docs/adr/003-metricas-de-qualidade.md)).
@@ -216,6 +220,13 @@ Detalhes: [docs/architecture.md](docs/architecture.md) · limites e termos de us
 - Aba **Ecossistema**: ranking de dubladores, duplas que mais contracenaram, diretores (volume × nota),
   guia de episódios e mangá × anime (a adaptação superou o original? quais populares ainda não viraram anime?).
 - Conexões curtas e somente leitura: o painel aberto não trava a ingestão.
+
+**Painel público (`site/`)** — [ADR 006](docs/adr/006-painel-publico-estatico.md)
+- `malpipe site` consulta as marts e grava só números agregados em `site/data/*.json`; a página
+  estática (d3, fontes e scripts hospedados no próprio repositório) desenha os gráficos no navegador.
+- O workflow `pages.yml` confere a página (`scripts/check_site.py`) e publica no GitHub Pages a cada
+  push em `site/`. O build local já atualiza os dados: o painel acompanha o pipeline.
+- Imagem de prévia (Open Graph) para o link aparecer com destaque no LinkedIn.
 
 **Consulta em SQL (DBeaver)** — `malpipe publish` gera uma cópia de consulta independente do banco de
 trabalho e `sql/consultas_dbeaver.sql` traz 38 consultas prontas ([guia](docs/dbeaver.md)).
@@ -293,8 +304,8 @@ Rotina semanal: `malpipe incremental && make build` — agendamento no Windows e
 
 ```
 malpipe init | status | sample | manami | discover | mal-details | jikan | my-list | kaggle | incremental
-        manga | anilist | anilist-relations | kitsu | ecosystem | check-sources | merge | recommend | dbt | publish | export
-make demo | ingest | ecosystem | sources | build | publish | dbt-build | dbt-docs | recommend | dashboard | test | lint
+        manga | anilist | anilist-relations | kitsu | ecosystem | check-sources | merge | recommend | dbt | publish | site | export
+make demo | ingest | ecosystem | sources | build | publish | site | site-preview | dbt-build | dbt-docs | recommend | dashboard | test | lint
 ```
 
 ## Estrutura
@@ -313,10 +324,11 @@ make demo | ingest | ecosystem | sources | build | publish | dbt-build | dbt-doc
 │   ├── models/marts/analytics/  # marts por pergunta + exposures
 │   ├── snapshots/  tests/  macros/  analyses/
 ├── dashboard/              # Streamlit: app.py (10 abas) + lib.py (filtros, formatação, estilo)
+├── site/                   # painel público (GitHub Pages): index.html, assets/, data/*.json agregados
 ├── sql/                    # 38 consultas prontas para o DBeaver (validadas no CI)
 ├── tests/                  # pytest
 ├── docs/                   # arquitetura, fontes, runbook, ADRs, dicionário de dados
-└── .github/workflows/ci.yml
+└── .github/workflows/      # ci.yml (pipeline inteiro) · pages.yml (publica o painel)
 ```
 
 ## Documentação
@@ -326,7 +338,7 @@ make demo | ingest | ecosystem | sources | build | publish | dbt-build | dbt-doc
 - [Runbook (operação, agendamento, diagnóstico)](docs/runbook.md)
 - [Consultando no DBeaver](docs/dbeaver.md) — cópia de consulta + 38 consultas prontas
 - [Dicionário de dados](docs/data-dictionary.md) — gerado do dbt
-- Decisões: [001 DuckDB](docs/adr/001-duckdb-como-warehouse.md) · [002 Bronze append-only](docs/adr/002-bronze-append-only-json.md) · [003 Métricas de qualidade](docs/adr/003-metricas-de-qualidade.md) · [004 Recomendador](docs/adr/004-recomendador.md) · [005 Ecossistema multifonte](docs/adr/005-ecossistema-multifonte.md)
+- Decisões: [001 DuckDB](docs/adr/001-duckdb-como-warehouse.md) · [002 Bronze append-only](docs/adr/002-bronze-append-only-json.md) · [003 Métricas de qualidade](docs/adr/003-metricas-de-qualidade.md) · [004 Recomendador](docs/adr/004-recomendador.md) · [005 Ecossistema multifonte](docs/adr/005-ecossistema-multifonte.md) · [006 Painel público estático](docs/adr/006-painel-publico-estatico.md)
 - Lineage interativo: `make dbt-docs`
 
 ## Roadmap
@@ -336,11 +348,21 @@ make demo | ingest | ecosystem | sources | build | publish | dbt-build | dbt-doc
 - [x] Ecossistema: mangá × adaptação, elenco e staff (AniList), episódios (Kitsu)
 - [x] Achados do ecossistema com os dados reais nesta página
 - [ ] ALS para feedback implícito e embeddings de sinopse no modelo de conteúdo
-- [ ] Exportar marts em Parquet e publicar o dashboard
+- [x] Publicar um painel público gerado pelo pipeline (GitHub Pages)
+- [ ] Atualização semanal automática, orquestração com Dagster e "Pergunte ao banco" (texto → SQL com LLM)
+
+## Como foi construído
+
+O projeto foi desenvolvido com o **Claude** (Anthropic) como par de programação: código, testes,
+documentação e investigação de erros foram feitos em conjunto, e os commits registram essa coautoria.
+As decisões de escopo, as fontes e a validação dos resultados com os dados reais passaram pelo autor —
+foi revisando os números que apareceu, por exemplo, a falha na ligação mangá × anime descrita no
+[ADR 005](docs/adr/005-ecossistema-multifonte.md).
 
 ## Uso dos dados
 
-Projeto pessoal e não comercial. Nenhum dado extraído é versionado aqui. MyAnimeList é marca de seus
+Projeto pessoal e não comercial. Nenhum dado bruto das APIs é versionado aqui — só os números
+agregados do painel público (`site/data/`), os mesmos citados neste README. MyAnimeList é marca de seus
 respectivos donos; este projeto não é afiliado ao MAL, ao Jikan, à AniList nem ao Kitsu. O anime-offline-database é
 distribuído sob ODbL/DbCL pelo manami-project. Código sob licença MIT.
 

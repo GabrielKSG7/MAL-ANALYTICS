@@ -71,6 +71,12 @@ jobs:
           REPORTS_DB_PATH=${{ github.workspace }}/data/ci_reports.duckdb malpipe publish
           python scripts/check_sql.py ${{ github.workspace }}/data/ci_reports.duckdb
 
+      - name: Painel público (malpipe site) — dados de demonstração não sobrescrevem site/data
+        run: |
+          malpipe site --out ${{ runner.temp }}/site-data --username demo_user
+          python scripts/check_site.py site ${{ runner.temp }}/site-data
+          python scripts/check_site.py site
+
       - name: Dashboard sobe sem erros (AppTest)
         run: |
           pip install -e ".[dashboard]"

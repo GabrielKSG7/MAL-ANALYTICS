@@ -123,6 +123,7 @@ def run_content_only(
                 "because_you_liked_mal_id": int(item_ids[because]) if because is not None else None,
                 "because_you_liked": titles.get(int(item_ids[because])) if because is not None else None,
                 "generated_at": trained_at,
+                "catalog_size": len(item_ids),
             }
         )
     _write(con, "recommendations_for_user", pd.DataFrame(out))

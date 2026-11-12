@@ -856,9 +856,9 @@ Testes: `not_null(user_key)`, `relationships(mal_id)`
 
 ### `analytics.mart_adaptation_scores` · table
 
-Nota da obra original × nota de cada adaptação em anime.
+Nota da obra original × nota de cada adaptação em anime. Uma linha por anime, comparado com a sua obra de origem principal (a mais popular).
 
-Testes: `unique_combination`
+Testes: `unique_combination`, `value_between(num_source_works)`
 
 | coluna | tipo | descrição |
 |---|---|---|
@@ -874,6 +874,7 @@ Testes: `unique_combination`
 | `main_studio_name` | VARCHAR |  |
 | `season_year` | BIGINT |  |
 | `years_after_original` | BIGINT |  |
+| `num_source_works` | BIGINT | Quantas obras de origem o anime tem. Os achados usam só os animes com uma (comparação sem ambiguidade). |
 
 ### `analytics.mart_anime_trending` · table
 

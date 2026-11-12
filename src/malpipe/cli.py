@@ -540,6 +540,27 @@ def export(
     con.close()
 
 
+@app.command("site")
+def site(
+    out: Annotated[Path | None, typer.Option(help="Pasta de saída dos JSON (padrão: site/data do projeto).")] = None,
+    username: Annotated[str | None, typer.Option(help="Lista usada na seção do recomendador.")] = None,
+) -> None:
+    """Atualiza os dados do painel público (site/data/*.json) a partir das marts. Depois: commit e push."""
+    from malpipe.config import PROJECT_ROOT
+    from malpipe.site import build_site_data
+
+    settings = get_settings()
+    target = out or PROJECT_ROOT / "site" / "data"
+    counts = build_site_data(settings.duckdb_path, target, username or settings.mal_username)
+    t = Table("conjunto", "linhas", title=f"Painel público → {target}")
+    for name, n in counts.items():
+        t.add_row(name, f"{n:,}", style="yellow" if n == 0 else None)
+    console.print(t)
+    if any(n == 0 for n in counts.values()):
+        console.print("[yellow]Conjuntos vazios aparecem como 'sem dados' no painel — rode o build antes.[/]")
+    console.print("Prévia local: [bold]python -m http.server -d site 8000[/] → http://localhost:8000")
+
+
 @app.command("merge")
 def merge(
     origem: Annotated[Path, typer.Argument(help="Outro arquivo .duckdb cujo bronze será copiado para o banco atual.")],

@@ -25,6 +25,17 @@ make build                        # dbt build + recomendador
 make dashboard
 ```
 
+## Painel público (GitHub Pages)
+
+```bash
+malpipe site                       # marts → site/data/*.json (já roda no fim do build)
+python -m http.server -d site 8000 # prévia em http://localhost:8000
+git add site/data && git commit -m "dados do painel" && git push   # o workflow pages.yml publica
+```
+
+- Primeira vez: *Settings → Pages → Source: GitHub Actions* (depois disso, nada a configurar).
+- Só vão para o site números agregados; o banco e o bronze nunca saem da sua máquina.
+
 ## Ecossistema: mangá, elenco, staff e episódios (uma vez, ~20 h)
 
 ```bash

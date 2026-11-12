@@ -109,11 +109,40 @@ models:
         data_tests: [unique, not_null]
 
   - name: mart_adaptation_scores
-    description: Nota da obra original × nota de cada adaptação em anime.
+    description: >
+      Nota da obra original × nota de cada adaptação em anime. Uma linha por anime, comparado com a sua
+      obra de origem principal (a mais popular).
     data_tests:
       - unique_combination: {arguments: {columns: [manga_id, mal_id]}}
+      - unique_combination: {arguments: {columns: [mal_id]}}
+    columns:
+      - name: num_source_works
+        description: Quantas obras de origem o anime tem. Os achados usam só os animes com uma (comparação sem ambiguidade).
+        data_tests:
+          - value_between: {arguments: {min_value: 1}}
 
 exposures:
+  - name: public_site
+    label: Painel público (GitHub Pages)
+    type: dashboard
+    maturity: high
+    url: https://gabrielksg7.github.io/MAL-ANALYTICS/
+    description: >
+      Página estática com os principais achados, gerada por `malpipe site` a partir das marts (só dados
+      agregados) e publicada pelo workflow pages.yml.
+    depends_on:
+      - ref('mart_score_inflation')
+      - ref('mart_season_trends')
+      - ref('mart_adaptation_scores')
+      - ref('mart_studio_performance')
+      - ref('mart_voice_actor_ranking')
+      - ref('mart_episode_trends')
+      - ref('mart_manga_adaptation_gap')
+      - ref('dim_manga')
+      - ref('fct_my_list')
+    owner:
+      name: Gabriel Silva Grande
+
   - name: streamlit_dashboard
     label: Dashboard MAL Analytics (Streamlit)
     type: dashboard

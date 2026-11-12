@@ -29,7 +29,9 @@ switch ($Task) {
     "ingest"    { malpipe incremental }
     "ecosystem" { malpipe check-sources; malpipe ecosystem }
     "sources"   { malpipe check-sources }
-    "build"     { Invoke-Dbt @("build"); malpipe recommend; malpipe publish }
+    "site"      { malpipe site; python scripts/check_site.py site }
+    "preview"   { python -m http.server -d site 8000 }
+    "build"     { Invoke-Dbt @("build"); malpipe recommend; malpipe publish; malpipe site }
     "publish"   { malpipe publish }
     "dbt-docs"  { Invoke-Dbt @("docs", "generate"); Invoke-Dbt @("docs", "serve", "--port", "8081") }
     "recommend" { malpipe recommend }
@@ -37,6 +39,6 @@ switch ($Task) {
     "test"      { pytest }
     "status"    { malpipe status }
     default {
-        Write-Host "Tarefas: install, demo, ingest, ecosystem, sources, build, publish, dbt-docs, recommend, dashboard, test, status"
+        Write-Host "Tarefas: install, demo, ingest, ecosystem, sources, site, preview, build, publish, dbt-docs, recommend, dashboard, test, status"
     }
 }
