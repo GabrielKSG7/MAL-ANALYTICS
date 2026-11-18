@@ -179,7 +179,9 @@ def _clean(value):
     if isinstance(value, float) and (math.isnan(value) or math.isinf(value)):
         return None
     if hasattr(value, "item"):  # numpy / decimal escalares
-        return value.item()
+        value = value.item()
+    if isinstance(value, float):
+        return round(value, 4)  # evita ruído de ponto flutuante no JSON (7.5600000000000005)
     if isinstance(value, int | float | str | bool) or value is None:
         return value
     return float(value) if hasattr(value, "__float__") else str(value)
