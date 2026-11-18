@@ -1,4 +1,4 @@
-<#
+﻿<#
   Atalhos para Windows (PowerShell), equivalentes ao Makefile.
   Uso:  .\scripts\tasks.ps1 demo
         .\scripts\tasks.ps1 ingest
@@ -15,7 +15,7 @@ Set-Location $Root
 $VenvScripts = Join-Path $Root ".venv\Scripts"
 if ((Test-Path $VenvScripts) -and ($env:PATH -notlike "*$VenvScripts*")) { $env:PATH = "$VenvScripts;$env:PATH" }
 # O caminho do banco vem do .env (DUCKDB_PATH) e é aplicado igualmente ao pipeline, ao dbt e ao
-# dashboard — `malpipe dbt` repassa o caminho para o dbt.
+# dashboard - `malpipe dbt` repassa o caminho para o dbt.
 
 function Invoke-Dbt([string[]]$DbtArgs) {
     malpipe dbt @DbtArgs

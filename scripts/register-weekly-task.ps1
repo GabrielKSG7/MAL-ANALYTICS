@@ -1,4 +1,4 @@
-<#
+﻿<#
   Registra no Agendador de Tarefas do Windows a coleta semanal do MAL Analytics.
 
   Uso (PowerShell, na pasta do projeto, uma vez):
@@ -35,5 +35,5 @@ $Settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatt
 Register-ScheduledTask -TaskName $Name -Action $Action -Trigger $Trigger -Settings $Settings `
     -Description "Coleta semanal (temporadas recentes + lista) e build do MAL Analytics" -Force | Out-Null
 
-Write-Host "Agendado: $Name — toda $Day às $At."
+Write-Host "Agendado: $Name - toda $Day às $At."
 Write-Host "Testar agora:  Start-ScheduledTask -TaskName '$Name'   (log em $Root\logs)"

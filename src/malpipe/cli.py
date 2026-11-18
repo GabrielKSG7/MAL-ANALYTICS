@@ -451,6 +451,7 @@ def publish(
     src, dst = settings.duckdb_path, settings.reports_db_path
     if src.resolve() == dst.resolve():
         raise typer.BadParameter("REPORTS_DB_PATH precisa ser diferente de DUCKDB_PATH")
+    dst.parent.mkdir(parents=True, exist_ok=True)  # num clone novo, data/ ainda não existe
     tmp = dst.with_suffix(".tmp.duckdb")
     tmp.unlink(missing_ok=True)
     started = time.monotonic()
