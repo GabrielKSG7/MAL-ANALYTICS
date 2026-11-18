@@ -33,3 +33,6 @@ dbt/.user.yml
 .idea/
 .DS_Store
 Thumbs.db
+
+# logs da coleta semanal
+logs/

@@ -25,6 +25,19 @@ make build                        # dbt build + recomendador
 make dashboard
 ```
 
+## Coleta semanal (termômetro da temporada)
+
+```powershell
+.\scripts\register-weekly-task.ps1            # agenda: domingo, 10:17 (uma vez)
+Start-ScheduledTask -TaskName "MAL Analytics - coleta semanal"   # rodar agora, para testar
+.\scripts\register-weekly-task.ps1 -Remove    # desfaz
+```
+
+- Roda `tasks.ps1 weekly`: `malpipe weekly` (temporadas do ano passado ao próximo + sua lista, < 1 h)
+  e o build completo. Cada semana vira um ponto novo em `fct_anime_metrics_snapshot`.
+- Só roda com o usuário logado; se o computador estiver desligado no horário, roda ao ligar.
+- Logs em `logs\weekly-AAAA-MM-DD.log`. O painel público só muda quando você faz commit e push de `site/data`.
+
 ## Painel público (GitHub Pages)
 
 ```bash

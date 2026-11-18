@@ -3,7 +3,7 @@ SHELL := /bin/bash
 # O caminho do banco vem do .env (DUCKDB_PATH); `malpipe dbt` repassa o mesmo caminho para o dbt.
 DBT := malpipe dbt
 
-.PHONY: help install demo ingest ecosystem sources site site-preview build publish dbt-build dbt-docs recommend dashboard test lint status clean
+.PHONY: help install demo ingest lineage weekly ecosystem sources site site-preview build publish dbt-build dbt-docs recommend dashboard test lint status clean
 
 help: ## Lista os comandos
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -16,6 +16,10 @@ demo: ## Ponta a ponta com dados SINTÉTICOS (sem credenciais): bronze → dbt �
 	DUCKDB_PATH=$(CURDIR)/data/demo.duckdb $(MAKE) dbt-build
 	DUCKDB_PATH=$(CURDIR)/data/demo.duckdb malpipe recommend --username demo_user
 	@echo "Pronto. Rode: DUCKDB_PATH=$(CURDIR)/data/demo.duckdb make dashboard"
+
+weekly: ## Coleta semanal (temporadas recentes + sua lista) e build
+	malpipe weekly
+	$(MAKE) build
 
 ingest: ## Ingestão incremental real (manami → temporadas → detalhes → Jikan → sua lista)
 	malpipe incremental
@@ -38,6 +42,10 @@ build: dbt-build recommend publish site ## dbt build + recomendador + cópia par
 
 dbt-build: ## Roda modelos, snapshot, testes e unit tests do dbt
 	$(DBT) build
+
+lineage: ## Regenera docs/lineage.md a partir do manifest do dbt
+	cd dbt && dbt parse
+	python scripts/gen_lineage.py
 
 dbt-docs: ## Gera e abre a documentação do dbt (lineage)
 	$(DBT) docs generate && $(DBT) docs serve --port 8081

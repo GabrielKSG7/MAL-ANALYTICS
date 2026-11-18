@@ -218,6 +218,15 @@ class Warehouse:
         return len(rows)
 
     # ----------------------------------------------------------- checkpoints
+    def season_ids_sql(self, years: list[int]) -> str:
+        """IDs descobertos nas temporadas desses anos + os da lista do usuário (recorte da coleta semanal)."""
+        seasons = " OR ".join(f"discovered_via LIKE 'season:{int(y)}-%'" for y in years) or "FALSE"
+        return f"""
+            SELECT DISTINCT mal_id FROM bronze.mal_anime_discovery WHERE {seasons}
+            UNION
+            SELECT DISTINCT TRY_CAST(payload->>'$.node.id' AS INTEGER) FROM bronze.mal_user_animelist
+        """
+
     def pending_ids(
         self,
         table: str,

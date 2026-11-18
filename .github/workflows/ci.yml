@@ -97,6 +97,11 @@ jobs:
         working-directory: dbt
         run: dbt docs generate
 
+      - name: Lineage do README está atualizado
+        run: |
+          python scripts/gen_lineage.py
+          git diff --exit-code docs/lineage.md || (echo "Rode: python scripts/gen_lineage.py" && exit 1)
+
       - uses: actions/upload-artifact@v4
         with:
           name: dbt-docs

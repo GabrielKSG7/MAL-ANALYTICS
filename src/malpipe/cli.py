@@ -359,6 +359,34 @@ def incremental(
 
 
 @app.command()
+def weekly(
+    refresh_days: Annotated[int, typer.Option(help="Re-extrai quem foi visto há mais de N dias.")] = 6,
+    with_jikan: Annotated[bool, typer.Option("--jikan/--no-jikan", help="Também enriquecer via Jikan.")] = False,
+) -> None:
+    """Coleta semanal enxuta: temporadas do ano passado ao próximo + a sua lista (~1–2 mil animes, < 1 h).
+
+    Cada execução vira um ponto novo na série de notas e membros (fct_anime_metrics_snapshot), base do
+    "termômetro da temporada". O catálogo inteiro continua sendo atualizado por `incremental`/`mal-details`.
+    """
+    settings = get_settings()
+    years = list(range(date.today().year - 1, date.today().year + 2))
+    if settings.mal_username:
+        my_list(None)
+    wh = _wh()
+    with wh.run("discover-weekly") as run, mal_api.build_client(settings) as client:
+        mal_api.discover_seasons(client, wh, run, years)
+    ids = wh.pending_ids("bronze.mal_anime", refresh_days, wh.season_ids_sql(years))
+    console.print(f"{len(ids):,} animes recentes para atualizar (~{len(ids) / settings.mal_rps / 60:.0f} min)")
+    if ids:
+        with wh.run("mal-details-weekly") as run, mal_api.build_client(settings) as client:
+            stats = mal_api.fetch_details(client, wh, run, ids)
+            run.notes = f"status: {stats}"
+    wh.close()
+    if with_jikan:
+        jikan_cmd("all", limit=None)
+
+
+@app.command()
 def sample(
     n_anime: Annotated[int, typer.Option()] = 400,
     n_users: Annotated[int, typer.Option()] = 1500,

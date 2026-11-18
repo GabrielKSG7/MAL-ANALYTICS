@@ -179,3 +179,15 @@ def test_anilist_relations_graphql_error_stops_after_3_batches(wh, make_client):
         anilist.fetch_relations_all(make_client(base_url=ANILIST), wh, run, range(1, 20), batch_size=2)
     statuses = {r[0] for r in wh.con.execute("SELECT DISTINCT http_status FROM bronze.anilist_relations").fetchall()}
     assert statuses == {400}  # nada gravado como sucesso
+
+
+def test_season_ids_sql_limits_to_recent_seasons_and_user_list(wh):
+    from malpipe.warehouse import utcnow
+
+    wh.insert_rows("bronze.mal_anime_discovery", ("mal_id", "discovered_via", "extracted_at", "run_id"),
+                   [(1, "season:2026-fall", utcnow(), "r"), (2, "season:2019-spring", utcnow(), "r"),
+                    (3, "ranking:all", utcnow(), "r")])  # fmt: skip
+    wh.insert_rows("bronze.mal_user_animelist", ("username", "payload", "extracted_at", "run_id"),
+                   [("me", '{"node": {"id": 4}}', utcnow(), "r")])  # fmt: skip
+    ids = {r[0] for r in wh.con.execute(wh.season_ids_sql([2025, 2026, 2027])).fetchall()}
+    assert ids == {1, 4}

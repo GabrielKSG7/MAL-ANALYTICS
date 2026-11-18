@@ -186,6 +186,29 @@ flowchart LR
 
 Detalhes: [docs/architecture.md](docs/architecture.md) · limites e termos de uso: [docs/data-sources.md](docs/data-sources.md)
 
+### Lineage
+
+Das fontes às entregas, gerado do manifest do dbt (`scripts/gen_lineage.py`, conferido no CI). O
+diagrama modelo a modelo está em [docs/lineage.md](docs/lineage.md); o interativo, em `make dbt-docs`.
+
+```mermaid
+flowchart LR
+  src_anilist[("AniList GraphQL")] --> stg["Staging · 26 modelos"]
+  src_jikan[("Jikan")] --> stg["Staging · 26 modelos"]
+  src_kaggle[("Kaggle (interações)")] --> stg["Staging · 26 modelos"]
+  src_kitsu[("Kitsu")] --> stg["Staging · 26 modelos"]
+  src_mal[("MyAnimeList API")] --> stg["Staging · 26 modelos"]
+  src_manami[("anime-offline-database")] --> stg["Staging · 26 modelos"]
+  stg --> int["Intermediate · 5"]
+  int --> core["Core · 16"]
+  stg --> core
+  core --> an["Analytics · 16"]
+  core --> rec{{"Recomendador (Python)"}}
+  an --> dash{{"Dashboard Streamlit"}}
+  an --> site{{"Painel público (GitHub Pages)"}}
+  an --> dbeaver{{"Cópia de consulta (DBeaver)"}}
+```
+
 ## Destaques técnicos
 
 **Ingestão (`src/malpipe`)**
@@ -232,7 +255,7 @@ Detalhes: [docs/architecture.md](docs/architecture.md) · limites e termos de us
 trabalho e `sql/consultas_dbeaver.sql` traz 38 consultas prontas ([guia](docs/dbeaver.md)).
 
 **Engenharia**
-- 39 testes Python (HTTP e GraphQL mockados com `respx`, paginação, checkpoint, loaders, recsys) · ruff · GitHub Actions rodando o **pipeline inteiro** (sintético + manami real) a cada push.
+- 40 testes Python (HTTP e GraphQL mockados com `respx`, paginação, checkpoint, loaders, recsys) · ruff · GitHub Actions rodando o **pipeline inteiro** (sintético + manami real) a cada push.
 - Gerador de **dados sintéticos no formato exato das APIs**: o projeto roda sem credenciais e o CI é determinístico.
 - Dicionário de dados gerado automaticamente do manifest do dbt.
 
@@ -341,15 +364,30 @@ make demo | ingest | ecosystem | sources | build | publish | site | site-preview
 - Decisões: [001 DuckDB](docs/adr/001-duckdb-como-warehouse.md) · [002 Bronze append-only](docs/adr/002-bronze-append-only-json.md) · [003 Métricas de qualidade](docs/adr/003-metricas-de-qualidade.md) · [004 Recomendador](docs/adr/004-recomendador.md) · [005 Ecossistema multifonte](docs/adr/005-ecossistema-multifonte.md) · [006 Painel público estático](docs/adr/006-painel-publico-estatico.md)
 - Lineage interativo: `make dbt-docs`
 
-## Roadmap
+## Escopo da v1
 
-- [x] Primeira carga real completa e uma seção de achados neste README
-- [ ] Polarização com Jikan, recomendador colaborativo com Kaggle e série temporal semanal
-- [x] Ecossistema: mangá × adaptação, elenco e staff (AniList), episódios (Kitsu)
-- [x] Achados do ecossistema com os dados reais nesta página
-- [ ] ALS para feedback implícito e embeddings de sinopse no modelo de conteúdo
-- [x] Publicar um painel público gerado pelo pipeline (GitHub Pages)
-- [ ] Atualização semanal automática, orquestração com Dagster e "Pergunte ao banco" (texto → SQL com LLM)
+A **v1.0.0** é o projeto como está nesta página, e fica congelada: novas ideias entram como versões
+futuras, sem mexer no que já foi publicado. Mudanças estão no [CHANGELOG](CHANGELOG.md).
+
+**Dentro da v1**
+- Ingestão de 6 fontes com rate limit, checkpoint e bronze append-only; carga do ecossistema em paralelo.
+- dbt: 63 modelos (staging → intermediate → core → analytics), snapshot SCD2, fato incremental,
+  contracts, testes de dados e unit tests.
+- Recomendador de conteúdo com explicação e avaliação offline (o híbrido com filtragem colaborativa
+  roda quando há dados do Kaggle).
+- Dashboard Streamlit (10 abas), cópia de consulta para o DBeaver com 38 consultas prontas e painel
+  público no GitHub Pages gerado pelo pipeline.
+- 12 achados com os dados reais neste README; documentação (arquitetura, fontes, runbook, ADRs,
+  dicionário de dados e lineage); CI rodando o pipeline inteiro com dados sintéticos.
+- Coleta semanal enxuta (`malpipe weekly` + Agendador do Windows), que acumula a série de notas para
+  o termômetro da temporada.
+
+**Fora da v1** (evolução futura, nesta ordem)
+1. Termômetro da temporada: evolução semanal das notas dos animes no ar (a coleta já está rodando).
+2. Polarização pela distribuição de notas da AniList (substitui o Jikan, inacessível na rede do autor).
+3. Recomendador colaborativo avaliado com o Kaggle (109M interações).
+4. Orquestração com Dagster.
+5. "Pergunte ao banco": perguntas em português viram SQL sobre as marts, com um LLM.
 
 ## Como foi construído
 
