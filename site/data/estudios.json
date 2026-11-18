@@ -2,14 +2,14 @@
  {
   "estudio": "Kyoto Animation",
   "titulos": 122,
-  "nota_mediana": 7.56,
+  "nota_mediana": 7.5600000000000005,
   "membros": 34908671,
   "melhor_titulo": "Koe no Katachi"
  },
  {
   "estudio": "Bones",
   "titulos": 154,
-  "nota_mediana": 7.31,
+  "nota_mediana": 7.3100000000000005,
   "membros": 55491489,
   "melhor_titulo": "Fullmetal Alchemist: Brotherhood"
  },
@@ -63,10 +63,10 @@
   "melhor_titulo": "Fruits Basket: The Final"
  },
  {
-  "estudio": "Satelight",
-  "titulos": 111,
+  "estudio": "Madhouse",
+  "titulos": 352,
   "nota_mediana": 6.96,
-  "membros": 10180928,
-  "melhor_titulo": "Log Horizon"
+  "membros": 64686412,
+  "melhor_titulo": "Sousou no Frieren"
  }
 ]

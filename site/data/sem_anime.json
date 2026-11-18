@@ -17,14 +17,6 @@
  },
  {
   "posicao": 3,
-  "obra": "20th Century Boys",
-  "inicio": 1999,
-  "autor": "Naoki Urasawa",
-  "nota": 8.93,
-  "leitores": 319631
- },
- {
-  "posicao": 4,
   "obra": "Fire Punch",
   "inicio": 2016,
   "autor": "Tatsuki Fujimoto",
@@ -32,7 +24,7 @@
   "leitores": 233166
  },
  {
-  "posicao": 5,
+  "posicao": 4,
   "obra": "Three Days of Happiness",
   "inicio": 2016,
   "autor": "Shouichi Taguchi; Sugaru Miaki",
@@ -40,15 +32,15 @@
   "leitores": 200495
  },
  {
-  "posicao": 6,
-  "obra": "JoJolion",
+  "posicao": 5,
+  "obra": "JoJo no Kimyou na Bouken Part 8: JoJolion",
   "inicio": 2011,
   "autor": "Hirohiko Araki",
   "nota": 8.5,
   "leitores": 180499
  },
  {
-  "posicao": 7,
+  "posicao": 6,
   "obra": "Homunculus",
   "inicio": 2003,
   "autor": "Hideo Yamamoto",
@@ -56,11 +48,19 @@
   "leitores": 178920
  },
  {
-  "posicao": 8,
+  "posicao": 7,
   "obra": "Goodbye, Eri",
   "inicio": 2022,
   "autor": "Tatsuki Fujimoto",
   "nota": 8.63,
   "leitores": 177382
+ },
+ {
+  "posicao": 8,
+  "obra": "The Climber",
+  "inicio": 2007,
+  "autor": "Shinichi Sakamoto",
+  "nota": 8.84,
+  "leitores": 163716
  }
 ]

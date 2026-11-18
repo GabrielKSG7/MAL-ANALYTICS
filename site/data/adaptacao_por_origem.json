@@ -1,15 +1,15 @@
 [
  {
-  "origem": "Light novel",
-  "adaptacoes": 533,
-  "diferenca_mediana": -0.5,
-  "pct_anime_melhor": 0.114
- },
- {
   "origem": "Mangá",
   "adaptacoes": 2258,
   "diferenca_mediana": -0.3,
   "pct_anime_melhor": 0.234
+ },
+ {
+  "origem": "Light novel",
+  "adaptacoes": 533,
+  "diferenca_mediana": -0.5,
+  "pct_anime_melhor": 0.114
  },
  {
   "origem": "Manhua",
